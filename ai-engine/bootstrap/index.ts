@@ -4,9 +4,6 @@
  * AI Engine Bootstrap Module
  * File: index.ts
  * -------------------------------------------------------------
- *
- * Public exports for AI Engine bootstrap layer.
- * -------------------------------------------------------------
  */
 
 
