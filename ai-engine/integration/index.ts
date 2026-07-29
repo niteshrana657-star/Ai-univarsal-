@@ -1,7 +1,7 @@
 /**
  * -------------------------------------------------------------
  * Universal AI Operating Companion
- * AI Engine Integration Module
+ * AI Engine Integration Entry
  * File: index.ts
  * -------------------------------------------------------------
  *
@@ -10,13 +10,27 @@
  */
 
 
+// Memory Integration
 export {
     MemoryIntegration
 } from "./MemoryIntegration";
 
 
+// AI Engine Memory Bridge
+export {
+    AIEngineMemoryBridge
+} from "./AIEngineMemoryBridge";
+
 export type {
-    MemoryProvider,
-    MemoryRecord,
-    MemoryContext
-} from "./MemoryIntegration";
+    AIEngineMemoryContext
+} from "./AIEngineMemoryBridge";
+
+
+// Context Pipeline
+export {
+    ContextPipeline
+} from "./ContextPipeline";
+
+export type {
+    PipelineContext
+} from "./ContextPipeline";
