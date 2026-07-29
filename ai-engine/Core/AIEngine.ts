@@ -1,198 +1,286 @@
 /**
- * -------------------------------------------------------------
  * Universal AI Operating Companion
- * AI Engine Module
- * File: AIEngine.ts
- * -------------------------------------------------------------
+ * AI Engine Core
+ *
+ * Responsible for:
+ * - AI request orchestration
+ * - Prompt preparation
+ * - Provider execution
+ * - Context handling
+ * - Lifecycle management
  */
 
-import AIEngineManager from "../services/AIEngineManager";
-import AIEngineEvents, {
-  AIEngineEvent
-} from "../services/AIEngineEvents";
+import { AIEngineState } from "./AIEngineState";
+import { AIEngineConfig } from "./AIEngineConfig";
 
-import {
-  AIRequest,
-  AIResponse
-} from "../providers/AIProvider";
+import { AIEngineEvents } from "../services/AIEngineEvents";
+import { AIEngineService } from "../services/AIEngineService";
 
-export interface AIEngineConfiguration {
+import { ProviderManager } from "../providers/ProviderManager";
 
-  autoInitialize: boolean;
+import { SystemPrompt } from "../prompts/SystemPrompt";
+import { UserPrompt } from "../prompts/UserPrompt";
+import { ContextPrompt } from "../prompts/ContextPrompt";
 
-  enableEvents: boolean;
 
-  enableLogging: boolean;
-
-  enableMetrics: boolean;
-
+export interface AIRequest {
+    message: string;
+    context?: Record<string, unknown>;
+    systemInstruction?: string;
+    metadata?: Record<string, unknown>;
 }
 
-export const DEFAULT_AI_ENGINE_CONFIGURATION:
-AIEngineConfiguration = {
 
-  autoInitialize: true,
+export interface AIResponse {
+    success: boolean;
+    message: string;
+    provider?: string;
+    error?: string;
+    timestamp: number;
+}
 
-  enableEvents: true,
-
-  enableLogging: false,
-
-  enableMetrics: true
-
-};
 
 export class AIEngine {
 
-  private initialized = false;
+    private readonly config: AIEngineConfig;
+    private readonly state: AIEngineState;
 
-  private configuration =
-    DEFAULT_AI_ENGINE_CONFIGURATION;
+    private readonly providerManager: ProviderManager;
+    private readonly events: AIEngineEvents;
+    private readonly service: AIEngineService;
 
-  /**
-   * Initialize Engine
-   */
-  public async initialize(
-    configuration?: Partial<
-      AIEngineConfiguration
-    >
-  ): Promise<void> {
 
-    this.configuration = {
+    constructor(
+        config: AIEngineConfig,
+        providerManager: ProviderManager,
+        events: AIEngineEvents,
+        service: AIEngineService
+    ) {
 
-      ...this.configuration,
+        this.config = config;
+        this.state = new AIEngineState();
 
-      ...configuration
+        this.providerManager = providerManager;
+        this.events = events;
+        this.service = service;
 
-    };
+        this.initialize();
+    }
 
-    AIEngineEvents.emit(
-      AIEngineEvent.INITIALIZING
-    );
 
-    await AIEngineManager.initialize();
+    /**
+     * Initialize AI Engine
+     */
+    private initialize(): void {
 
-    this.initialized = true;
+        this.state.setInitialized(true);
 
-    AIEngineEvents.emit(
-      AIEngineEvent.INITIALIZED
-    );
+        this.events.emit(
+            "AI_ENGINE_INITIALIZED",
+            {
+                timestamp: Date.now()
+            }
+        );
+    }
 
-  }
 
-  /**
-   * Check Initialization
-   */
-  public isInitialized():
-    boolean {
+    /**
+     * Execute AI request
+     */
+    async execute(
+        request: AIRequest
+    ): Promise<AIResponse> {
 
-    return this.initialized;
+        const startTime = Date.now();
 
-  }
+        try {
 
-  /**
-   * Generate AI Response
-   */
-  public async generate(
-    request: AIRequest
-  ): Promise<AIResponse> {
+            this.state.setProcessing(true);
+            this.state.setLastRequest(request);
 
-    if (!this.initialized) {
 
-      if (
-        this.configuration
-          .autoInitialize
-      ) {
+            this.events.emit(
+                "AI_REQUEST_STARTED",
+                request
+            );
 
-        await this.initialize();
 
-      } else {
+            const prompt =
+                this.buildPrompt(request);
 
-        return {
 
-          success: false,
+            const provider =
+                this.providerManager.getActiveProvider();
 
-          text: "",
 
-          model: "",
+            if (!provider) {
 
-          provider: "",
+                throw new Error(
+                    "No AI provider available"
+                );
+            }
 
-          timestamp:
-            Date.now(),
 
-          error:
-            "AI Engine not initialized."
+            const result =
+                await provider.generate(
+                    prompt
+                );
 
-        };
 
-      }
+            const response: AIResponse = {
+
+                success: true,
+
+                message: result,
+
+                provider:
+                    provider.name,
+
+                timestamp:
+                    Date.now()
+
+            };
+
+
+            this.state.setLastResponse(
+                response
+            );
+
+
+            this.events.emit(
+                "AI_REQUEST_COMPLETED",
+                response
+            );
+
+
+            return response;
+
+
+        } catch(error:any) {
+
+
+            const response: AIResponse = {
+
+                success:false,
+
+                message:"",
+
+                error:
+                    error.message ??
+                    "Unknown AI Engine error",
+
+                timestamp:
+                    Date.now()
+
+            };
+
+
+            this.state.setError(
+                response.error
+            );
+
+
+            this.events.emit(
+                "AI_REQUEST_FAILED",
+                response
+            );
+
+
+            return response;
+
+
+        } finally {
+
+
+            this.state.setProcessing(false);
+
+
+            this.service.recordExecution({
+
+                duration:
+                    Date.now() - startTime,
+
+                success:
+                    this.state.hasError()
+                        ? false
+                        : true
+
+            });
+
+        }
 
     }
 
-    AIEngineEvents.emit(
-      AIEngineEvent.REQUEST_STARTED,
-      request
-    );
 
-    const response =
-      await AIEngineManager.generate(
-        request
-      );
 
-    if (response.success) {
+    /**
+     * Build final AI prompt
+     */
+    private buildPrompt(
+        request: AIRequest
+    ): string {
 
-      AIEngineEvents.emit(
-        AIEngineEvent.REQUEST_COMPLETED,
-        response
-      );
 
-    } else {
+        const system =
+            request.systemInstruction ??
+            SystemPrompt.get();
 
-      AIEngineEvents.emit(
-        AIEngineEvent.REQUEST_FAILED,
-        response
-      );
+
+        const user =
+            UserPrompt.create(
+                request.message
+            );
+
+
+        const context =
+            ContextPrompt.create(
+                request.context ?? {}
+            );
+
+
+        return [
+
+            system,
+
+            context,
+
+            user
+
+        ]
+        .filter(Boolean)
+        .join("\n\n");
 
     }
 
-    return response;
 
-  }
 
-  /**
-   * Shutdown Engine
-   */
-  public shutdown(): void {
+    /**
+     * Get current engine state
+     */
+    getState(): AIEngineState {
 
-    AIEngineManager.shutdown();
+        return this.state;
 
-    this.initialized = false;
+    }
 
-    AIEngineEvents.emit(
-      AIEngineEvent.SHUTDOWN
-    );
 
-  }
 
-  /**
-   * Restart Engine
-   */
-  public async restart():
-    Promise<void> {
+    /**
+     * Shutdown AI Engine
+     */
+    shutdown(): void {
 
-    this.shutdown();
 
-    await this.initialize();
+        this.state.setProcessing(false);
 
-    AIEngineEvents.emit(
-      AIEngineEvent.RESTART
-    );
+        this.events.emit(
+            "AI_ENGINE_SHUTDOWN",
+            {
+                timestamp:Date.now()
+            }
+        );
 
-  }
+    }
 
-}
 
-const aiEngine =
-  new AIEngine();
-
-export default aiEngine;
+    }
