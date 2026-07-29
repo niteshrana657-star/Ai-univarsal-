@@ -1,225 +1,205 @@
 /**
- * -------------------------------------------------------------
  * Universal AI Operating Companion
- * AI Engine Module
- * File: AIEngineState.ts
- * -------------------------------------------------------------
+ * AI Engine State Management
+ *
+ * Maintains runtime state of AI Engine.
  */
 
-import { AIProvider } from "../providers/AIProvider";
-import { AIModel } from "../models/AIModel";
+import { AIRequest, AIResponse } from "./AIEngine";
 
-export interface AIEngineMetrics {
 
-  totalRequests: number;
+export class AIEngineState {
 
-  successfulRequests: number;
+    private initialized: boolean = false;
 
-  failedRequests: number;
+    private processing: boolean = false;
 
-  averageResponseTime: number;
+    private lastRequest:
+        AIRequest | null = null;
 
-  lastResponseTime: number;
+    private lastResponse:
+        AIResponse | null = null;
 
-  totalTokens: number;
+    private error:
+        string | null = null;
+
+
+
+    /**
+     * Set initialization state
+     */
+    setInitialized(
+        value: boolean
+    ): void {
+
+        this.initialized = value;
+
+    }
+
+
+
+    /**
+     * Check initialization state
+     */
+    isInitialized(): boolean {
+
+        return this.initialized;
+
+    }
+
+
+
+    /**
+     * Set processing status
+     */
+    setProcessing(
+        value: boolean
+    ): void {
+
+        this.processing = value;
+
+    }
+
+
+
+    /**
+     * Check processing status
+     */
+    isProcessing(): boolean {
+
+        return this.processing;
+
+    }
+
+
+
+    /**
+     * Store latest AI request
+     */
+    setLastRequest(
+        request: AIRequest
+    ): void {
+
+        this.lastRequest = request;
+
+    }
+
+
+
+    /**
+     * Get latest request
+     */
+    getLastRequest():
+        AIRequest | null {
+
+        return this.lastRequest;
+
+    }
+
+
+
+    /**
+     * Store latest AI response
+     */
+    setLastResponse(
+        response: AIResponse
+    ): void {
+
+        this.lastResponse = response;
+
+    }
+
+
+
+    /**
+     * Get latest response
+     */
+    getLastResponse():
+        AIResponse | null {
+
+        return this.lastResponse;
+
+    }
+
+
+
+    /**
+     * Store error
+     */
+    setError(
+        error: string | null
+    ): void {
+
+        this.error = error;
+
+    }
+
+
+
+    /**
+     * Get current error
+     */
+    getError():
+        string | null {
+
+        return this.error;
+
+    }
+
+
+
+    /**
+     * Check if engine has error
+     */
+    hasError(): boolean {
+
+        return this.error !== null;
+
+    }
+
+
+
+    /**
+     * Reset state
+     */
+    reset(): void {
+
+        this.processing = false;
+
+        this.lastRequest = null;
+
+        this.lastResponse = null;
+
+        this.error = null;
+
+    }
+
+
+
+    /**
+     * Export complete state snapshot
+     */
+    getSnapshot() {
+
+        return {
+
+            initialized:
+                this.initialized,
+
+            processing:
+                this.processing,
+
+            lastRequest:
+                this.lastRequest,
+
+            lastResponse:
+                this.lastResponse,
+
+            error:
+                this.error
+
+        };
+
+    }
 
 }
-
-export interface AIEngineState {
-
-  initialized: boolean;
-
-  ready: boolean;
-
-  activeProvider: AIProvider | null;
-
-  activeModel: AIModel | null;
-
-  startedAt: number | null;
-
-  lastRequestAt: number | null;
-
-  lastResponseAt: number | null;
-
-  metrics: AIEngineMetrics;
-
-}
-
-export const DEFAULT_ENGINE_METRICS:
-AIEngineMetrics = {
-
-  totalRequests: 0,
-
-  successfulRequests: 0,
-
-  failedRequests: 0,
-
-  averageResponseTime: 0,
-
-  lastResponseTime: 0,
-
-  totalTokens: 0
-
-};
-
-export const DEFAULT_ENGINE_STATE:
-AIEngineState = {
-
-  initialized: false,
-
-  ready: false,
-
-  activeProvider: null,
-
-  activeModel: null,
-
-  startedAt: null,
-
-  lastRequestAt: null,
-
-  lastResponseAt: null,
-
-  metrics: {
-
-    ...DEFAULT_ENGINE_METRICS
-
-  }
-
-};
-
-export class AIEngineStateManager {
-
-  private state: AIEngineState = {
-
-    ...DEFAULT_ENGINE_STATE
-
-  };
-
-  /**
-   * Get State
-   */
-  public getState():
-    AIEngineState {
-
-    return {
-
-      ...this.state
-
-    };
-
-  }
-
-  /**
-   * Update State
-   */
-  public update(
-    updates: Partial<AIEngineState>
-  ): void {
-
-    this.state = {
-
-      ...this.state,
-
-      ...updates
-
-    };
-
-  }
-
-  /**
-   * Update Metrics
-   */
-  public updateMetrics(
-    metrics: Partial<AIEngineMetrics>
-  ): void {
-
-    this.state.metrics = {
-
-      ...this.state.metrics,
-
-      ...metrics
-
-    };
-
-  }
-
-  /**
-   * Reset State
-   */
-  public reset(): void {
-
-    this.state = {
-
-      ...DEFAULT_ENGINE_STATE,
-
-      metrics: {
-
-        ...DEFAULT_ENGINE_METRICS
-
-      }
-
-    };
-
-  }
-
-  /**
-   * Mark Request Started
-   */
-  public requestStarted(): void {
-
-    this.state.lastRequestAt =
-      Date.now();
-
-    this.state.metrics.totalRequests++;
-
-  }
-
-  /**
-   * Mark Request Completed
-   */
-  public requestCompleted(
-    responseTime: number,
-    tokens: number = 0
-  ): void {
-
-    this.state.lastResponseAt =
-      Date.now();
-
-    this.state.metrics.successfulRequests++;
-
-    this.state.metrics.lastResponseTime =
-      responseTime;
-
-    this.state.metrics.totalTokens +=
-      tokens;
-
-    const total =
-      this.state.metrics.successfulRequests;
-
-    this.state.metrics.averageResponseTime =
-
-      (
-        (
-          this.state.metrics.averageResponseTime *
-          (total - 1)
-        ) +
-        responseTime
-      ) / total;
-
-  }
-
-  /**
-   * Mark Failed Request
-   */
-  public requestFailed(): void {
-
-    this.state.metrics.failedRequests++;
-
-  }
-
-}
-
-const aiEngineState =
-  new AIEngineStateManager();
-
-export default aiEngineState;
