@@ -4,6 +4,9 @@
  * AI Engine Main Entry
  * File: index.ts
  * -------------------------------------------------------------
+ *
+ * Public exports for complete AI Engine module.
+ * -------------------------------------------------------------
  */
 
 
@@ -29,9 +32,18 @@ export * from "./providers";
 export * from "./services";
 
 
+// Integration
+export * from "./integration";
+
+
+// Bootstrap
+export * from "./bootstrap";
+
+
 // AI Engine Metadata
 
-export const AI_ENGINE_VERSION = "1.0.0";
+export const AI_ENGINE_VERSION =
+    "1.0.0";
 
 
 export const AI_ENGINE_NAME =
