@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
 
-    <!-- Application -->
+    <!-- App -->
     <string name="app_name">Universal AI Companion</string>
 
     <!-- General -->
@@ -9,39 +9,49 @@
     <string name="cancel">Cancel</string>
     <string name="close">Close</string>
     <string name="save">Save</string>
-    <string name="continue_text">Continue</string>
     <string name="back">Back</string>
     <string name="next">Next</string>
 
     <!-- Home -->
-    <string name="ai_status">AI Status</string>
-    <string name="ai_enabled">Enabled</string>
-    <string name="ai_disabled">Disabled</string>
-    <string name="assistant_ready">Assistant Ready</string>
+    <string name="home_title">Universal AI</string>
+    <string name="home_subtitle">Your Personal AI Operating Companion</string>
 
-    <!-- Permissions -->
+    <!-- AI Status -->
+    <string name="ai_ready">AI Ready</string>
+    <string name="ai_disabled">AI Disabled</string>
+    <string name="ai_status">AI Status</string>
+
+    <!-- AI Control -->
+    <string name="turn_ai_on">Turn AI ON</string>
+    <string name="turn_ai_off">Turn AI OFF</string>
+
+    <!-- Input -->
+    <string name="input_hint">Ask anything or give a command...</string>
+    <string name="voice_input">Voice Input</string>
+    <string name="send">Send</string>
+
+    <!-- Cards -->
     <string name="permissions">Permissions</string>
+    <string name="privacy">Privacy Protected</string>
+    <string name="quick_actions">Quick Actions</string>
+
+    <!-- Features -->
+    <string name="voice">Voice</string>
+    <string name="screen">Screen</string>
+    <string name="automation">Automation</string>
+    <string name="plugins">Plugins</string>
+    <string name="security">Security</string>
+    <string name="settings">Settings</string>
+
+    <!-- Permission -->
     <string name="grant_permission">Grant Permission</string>
     <string name="permission_required">Permission Required</string>
 
-    <!-- Voice -->
-    <string name="voice">Voice</string>
-    <string name="listening">Listening...</string>
-    <string name="processing">Processing...</string>
+    <!-- Loading -->
+    <string name="listening">Listening…</string>
+    <string name="processing">Processing…</string>
 
-    <!-- Screen -->
-    <string name="screen_capture">Screen Capture</string>
-
-    <!-- Overlay -->
-    <string name="overlay">Overlay</string>
-
-    <!-- Notifications -->
-    <string name="notifications">Notifications</string>
-
-    <!-- Settings -->
-    <string name="settings">Settings</string>
-
-    <!-- Errors -->
+    <!-- Error -->
     <string name="error_unknown">Something went wrong.</string>
 
 </resources>
