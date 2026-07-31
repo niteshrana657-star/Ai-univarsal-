@@ -55,3 +55,15 @@
     <string name="error_unknown">Something went wrong.</string>
 
 </resources>
+    <!-- AI Input Panel -->
+    <string name="input_placeholder">Type your message…</string>
+    <string name="voice_assistant">Voice Assistant</string>
+    <string name="attach">Attach</string>
+
+    <!-- Privacy -->
+    <string name="privacy_status">Your privacy is protected. AI only works with your permission.</string>
+
+    <!-- Quick Actions -->
+    <string name="open_permissions">Open Permissions</string>
+    <string name="open_settings">Open Settings</string>
+    <string name="screen_monitoring">Screen Monitoring</string>
