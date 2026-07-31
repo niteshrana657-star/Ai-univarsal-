@@ -1,48 +1,36 @@
 <?xml version="1.0" encoding="utf-8"?>
-<androidx.constraintlayout.widget.ConstraintLayout
+<androidx.coordinatorlayout.widget.CoordinatorLayout
     xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
-    android:id="@+id/rootLayout"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:background="@color/background">
 
-    <!-- App Title -->
-    <TextView
-        android:id="@+id/tvTitle"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="@string/app_name"
-        android:textColor="@color/text_primary"
-        android:textSize="24sp"
-        android:textStyle="bold"
-        android:layout_marginTop="32dp"
-        app:layout_constraintTop_toTopOf="parent"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintEnd_toEndOf="parent"/>
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:orientation="vertical">
 
-    <!-- AI Status -->
-    <TextView
-        android:id="@+id/tvStatus"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="@string/assistant_ready"
-        android:textColor="@color/success"
-        android:textSize="16sp"
-        android:layout_marginTop="12dp"
-        app:layout_constraintTop_toBottomOf="@id/tvTitle"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintEnd_toEndOf="parent"/>
+        <!-- Top App Bar -->
+        <include layout="@layout/app_bar" />
 
-    <!-- Main Action -->
-    <com.google.android.material.button.MaterialButton
-        android:id="@+id/btnStart"
-        android:layout_width="220dp"
-        android:layout_height="wrap_content"
-        android:text="@string/continue_text"
-        android:layout_marginBottom="48dp"
-        app:layout_constraintBottom_toBottomOf="parent"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintEnd_toEndOf="parent"/>
+        <!-- AI Status Card -->
+        <include layout="@layout/ai_status_card" />
 
-</androidx.constraintlayout.widget.ConstraintLayout>
+        <!-- Permission Status -->
+        <include layout="@layout/permission_card" />
+
+        <!-- AI Input Panel -->
+        <include layout="@layout/ai_input_panel" />
+
+        <!-- Quick Actions -->
+        <include layout="@layout/quick_actions" />
+
+    </LinearLayout>
+
+    <!-- Bottom Navigation -->
+    <include
+        android:layout_gravity="bottom"
+        layout="@layout/bottom_navigation" />
+
+</androidx.coordinatorlayout.widget.CoordinatorLayout>
