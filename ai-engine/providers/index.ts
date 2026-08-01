@@ -1,34 +1,279 @@
 /**
- * -------------------------------------------------------------
- * Universal AI Operating Companion
- * AI Engine Module
- * File: index.ts
- * -------------------------------------------------------------
+ * providers/index.ts
+ *
+ * AI Provider Layer Exports
  */
 
-export {
-  BaseAIProvider
-} from "./AIProvider";
+// ==============================
+// Core
+// ==============================
 
-export type {
-  AIProvider,
-  AIRequest,
-  AIResponse,
-  ProviderStatus
-} from "./AIProvider";
+export * from "./AIProvider";
+export * from "./AIProviderFactory";
+export * from "./ProviderRegistry";
+export * from "./ProviderManager";
 
-export {
-  default as ProviderManager
-} from "./ProviderManager";
+// ==============================
+// Providers
+// ==============================
 
-export {
-  default as ProviderRegistry
-} from "./ProviderRegistry";
+export * from "./openai";
+export * from "./gemini";
+export * from "./ollama";
+export * from "./local";
+// ==============================
+// Default Provider
+// ==============================
 
-export {
-  default as ProviderFactory
-} from "./ProviderFactory";
+export const DEFAULT_AI_PROVIDER =
+    "gemini";
 
-export type {
-  ProviderCreator
-} from "./ProviderFactory";
+
+
+// ==============================
+// Supported Providers
+// ==============================
+
+export const SUPPORTED_AI_PROVIDERS = [
+
+    "gemini",
+
+    "openai",
+
+    "ollama",
+
+    "local"
+
+] as const;
+
+
+
+// ==============================
+// Provider Type
+// ==============================
+
+export type AIProviderName =
+    typeof SUPPORTED_AI_PROVIDERS[number];
+
+
+
+// ==============================
+// Helper
+// ==============================
+
+export function isSupportedProvider(
+    provider: string
+): provider is AIProviderName {
+
+    return SUPPORTED_AI_PROVIDERS.includes(
+        provider as AIProviderName
+    );
+
+}
+// ==============================
+// Provider Information
+// ==============================
+
+export interface IAIProviderInfo {
+
+    id: AIProviderName;
+
+    displayName: string;
+
+    supportsOnline: boolean;
+
+    supportsOffline: boolean;
+
+    supportsVision: boolean;
+
+    supportsStreaming: boolean;
+
+}
+
+
+
+// ==============================
+// Provider List
+// ==============================
+
+export const AI_PROVIDER_INFO:
+Record<
+    AIProviderName,
+    IAIProviderInfo
+> = {
+
+    gemini: {
+
+        id: "gemini",
+
+        displayName: "Google Gemini",
+
+        supportsOnline: true,
+
+        supportsOffline: false,
+
+        supportsVision: true,
+
+        supportsStreaming: true
+
+    },
+
+    openai: {
+
+        id: "openai",
+
+        displayName: "OpenAI",
+
+        supportsOnline: true,
+
+        supportsOffline: false,
+
+        supportsVision: true,
+
+        supportsStreaming: true
+
+    },
+
+    ollama: {
+
+        id: "ollama",
+
+        displayName: "Ollama",
+
+        supportsOnline: false,
+
+        supportsOffline: true,
+
+        supportsVision: false,
+
+        supportsStreaming: true
+
+    },
+
+    local: {
+
+        id: "local",
+
+        displayName: "Local AI",
+
+        supportsOnline: false,
+
+        supportsOffline: true,
+
+        supportsVision: false,
+
+        supportsStreaming: false
+
+    }
+
+};
+
+
+
+// ==============================
+// Helpers
+// ==============================
+
+export function getProviderInfo(
+    provider: AIProviderName
+): IAIProviderInfo {
+
+    return AI_PROVIDER_INFO[provider];
+
+}
+
+
+
+export function getDefaultProvider():
+AIProviderName {
+
+    return DEFAULT_AI_PROVIDER;
+
+}
+// ==============================
+// Provider Utilities
+// ==============================
+
+export function getSupportedProviders():
+readonly AIProviderName[] {
+
+    return SUPPORTED_AI_PROVIDERS;
+
+}
+
+
+
+export function hasVisionSupport(
+    provider: AIProviderName
+): boolean {
+
+    return AI_PROVIDER_INFO[
+        provider
+    ].supportsVision;
+
+}
+
+
+
+export function hasStreamingSupport(
+    provider: AIProviderName
+): boolean {
+
+    return AI_PROVIDER_INFO[
+        provider
+    ].supportsStreaming;
+
+}
+
+
+
+export function hasOfflineSupport(
+    provider: AIProviderName
+): boolean {
+
+    return AI_PROVIDER_INFO[
+        provider
+    ].supportsOffline;
+
+}
+
+
+
+// ==============================
+// Version
+// ==============================
+
+export const PROVIDERS_VERSION =
+    "1.0.0";
+
+
+
+// ==============================
+// Default Export
+// ==============================
+
+export default {
+
+    DEFAULT_AI_PROVIDER,
+
+    SUPPORTED_AI_PROVIDERS,
+
+    AI_PROVIDER_INFO,
+
+    getDefaultProvider,
+
+    getSupportedProviders,
+
+    getProviderInfo,
+
+    isSupportedProvider,
+
+    hasVisionSupport,
+
+    hasStreamingSupport,
+
+    hasOfflineSupport,
+
+    PROVIDERS_VERSION
+
+};
