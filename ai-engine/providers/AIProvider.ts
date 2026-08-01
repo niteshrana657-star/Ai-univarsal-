@@ -1,132 +1,274 @@
 /**
- * -------------------------------------------------------------
+ * AIProvider.ts
+ *
+ * Base Provider Contract
  * Universal AI Operating Companion
- * AI Engine Module
- * File: AIProvider.ts
- * -------------------------------------------------------------
  */
 
-import { AIModel } from "../models/AIModel";
+// ==============================
+// Provider Types
+// ==============================
 
-export type ProviderStatus =
-  | "CONNECTED"
-  | "DISCONNECTED"
-  | "CONNECTING"
-  | "ERROR";
+export type AIProviderState =
+    | "IDLE"
+    | "INITIALIZING"
+    | "READY"
+    | "BUSY"
+    | "OFFLINE"
+    | "ERROR";
 
-export interface AIRequest {
 
-  prompt: string;
 
-  systemPrompt?: string;
+export type AIProviderCapability =
+    | "CHAT"
+    | "VISION"
+    | "EMBEDDING"
+    | "STREAMING"
+    | "FUNCTION_CALLING"
+    | "IMAGE_GENERATION";
 
-  context?: string;
 
-  temperature?: number;
 
-  maxTokens?: number;
+// ==============================
+// Provider Configuration
+// ==============================
 
-  stream?: boolean;
+export interface IAIProviderConfig {
+
+    id: string;
+
+    name: string;
+
+    version: string;
+
+    enabled: boolean;
+
+    apiKey?: string;
+
+    endpoint?: string;
+
+    timeout: number;
+
+    maxTokens: number;
+
+    metadata?: Record<string, unknown>;
+
+}
+// ==============================
+// Provider Request
+// ==============================
+
+export interface IAIProviderRequest {
+
+    id: string;
+
+    prompt: string;
+
+    systemPrompt?: string;
+
+    context?: Record<string, unknown>;
+
+    model?: string;
+
+    temperature?: number;
+
+    maxTokens?: number;
+
+    stream?: boolean;
+
+    metadata?: Record<string, unknown>;
 
 }
 
-export interface AIResponse {
 
-  success: boolean;
 
-  text: string;
+// ==============================
+// Provider Response
+// ==============================
 
-  model: string;
+export interface IAIProviderResponse {
 
-  provider: string;
+    success: boolean;
 
-  timestamp: number;
+    provider: string;
 
-  usage?: {
+    model: string;
 
-    promptTokens: number;
+    content?: string;
 
-    completionTokens: number;
+    finishReason?: string;
+
+    promptTokens?: number;
+
+    completionTokens?: number;
+
+    totalTokens?: number;
+
+    processingTime?: number;
+
+    error?: string;
+
+    metadata?: Record<string, unknown>;
+
+}
+
+
+
+// ==============================
+// Provider Interface
+// ==============================
+
+export interface IAIProvider {
+
+    initialize(): Promise<void>;
+
+    shutdown(): Promise<void>;
+
+    isAvailable(): boolean;
+
+    getState(): AIProviderState;
+
+    getConfiguration(): IAIProviderConfig;
+
+    generate(
+        request: IAIProviderRequest
+    ): Promise<IAIProviderResponse>;
+
+}
+// ==============================
+// Provider Health
+// ==============================
+
+export interface IAIProviderHealth {
+
+    available: boolean;
+
+    state: AIProviderState;
+
+    latency: number;
+
+    lastCheck: number;
+
+    uptime: number;
+
+    message?: string;
+
+}
+
+
+
+// ==============================
+// Provider Metrics
+// ==============================
+
+export interface IAIProviderMetrics {
+
+    totalRequests: number;
+
+    successfulRequests: number;
+
+    failedRequests: number;
+
+    averageLatency: number;
 
     totalTokens: number;
 
-  };
-
-  error?: string;
+    lastRequestTime?: number;
 
 }
 
-export interface AIProvider {
 
-  readonly id: string;
 
-  readonly name: string;
+// ==============================
+// Provider Events
+// ==============================
 
-  readonly provider: string;
+export interface IAIProviderEvent {
 
-  readonly version: string;
+    type: string;
 
-  readonly model: AIModel;
+    timestamp: number;
 
-  connect(): Promise<boolean>;
+    provider: string;
 
-  disconnect(): Promise<void>;
-
-  isConnected(): boolean;
-
-  getStatus(): ProviderStatus;
-
-  generate(
-    request: AIRequest
-  ): Promise<AIResponse>;
+    payload?: Record<string, unknown>;
 
 }
 
-export abstract class BaseAIProvider
-  implements AIProvider {
 
-  public abstract readonly id: string;
 
-  public abstract readonly name: string;
+// ==============================
+// Extended Provider Contract
+// ==============================
 
-  public abstract readonly provider: string;
+export interface IAIProviderLifecycle
+    extends IAIProvider {
 
-  public abstract readonly version: string;
+    getHealth():
+        IAIProviderHealth;
 
-  public abstract readonly model: AIModel;
+    getMetrics():
+        IAIProviderMetrics;
 
-  protected status: ProviderStatus =
-    "DISCONNECTED";
+    resetMetrics():
+        void;
 
-  public abstract connect():
-    Promise<boolean>;
+    emit(
+        event: IAIProviderEvent
+    ): void;
 
-  public abstract disconnect():
-    Promise<void>;
+    }
+// ==============================
+// Provider Factory Contract
+// ==============================
 
-  public abstract generate(
-    request: AIRequest
-  ): Promise<AIResponse>;
+export interface IAIProviderFactory {
 
-  public isConnected(): boolean {
+    create(
+        config: IAIProviderConfig
+    ): Promise<IAIProvider>;
 
-    return this.status === "CONNECTED";
+}
 
-  }
 
-  public getStatus():
-    ProviderStatus {
 
-    return this.status;
+// ==============================
+// Provider Registry Entry
+// ==============================
 
-  }
+export interface IAIProviderRegistryEntry {
 
-  protected setStatus(
-    status: ProviderStatus
-  ): void {
+    id: string;
 
-    this.status = status;
+    name: string;
 
-  }
+    version: string;
 
-  }
+    capabilities: AIProviderCapability[];
+
+    enabled: boolean;
+
+    provider: IAIProvider;
+
+}
+
+
+
+// ==============================
+// Constants
+// ==============================
+
+export const DEFAULT_PROVIDER_TIMEOUT =
+    30000;
+
+export const DEFAULT_MAX_TOKENS =
+    4096;
+
+
+
+// ==============================
+// Version
+// ==============================
+
+export const AI_PROVIDER_VERSION =
+    "1.0.0";
