@@ -27,3 +27,6 @@ export {
 export {
   default as ModelManager
 } from "./ModelManager";
+export {
+  default as ModelFactory
+} from "./ModelFactory";
