@@ -35,3 +35,36 @@
     "node": ">=20"
   }
 }
+{
+  "dependencies": {
+    "react": "...",
+    "react-native": "...",
+    "expo": "...",
+
+    "@react-native-async-storage/async-storage": "...",
+    "@react-navigation/native": "...",
+    "@react-navigation/native-stack": "...",
+
+    "axios": "...",
+
+    "react-native-permissions": "...",
+    "react-native-keychain": "...",
+    "react-native-voice": "...",
+
+    "expo-camera": "...",
+    "expo-file-system": "...",
+    "expo-notifications": "...",
+    "expo-task-manager": "...",
+
+    "@google/genai": "..."
+  },
+
+  "devDependencies": {
+    "typescript": "...",
+    "eslint": "...",
+    "prettier": "...",
+    "jest": "...",
+    "@types/react": "...",
+    "@types/react-native": "..."
+  }
+}
