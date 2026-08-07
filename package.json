@@ -1,1 +1,37 @@
+{
+  "name": "universal-ai-operating-companion",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Universal AI Operating Companion",
+  "main": "index.js",
+  "license": "MIT",
 
+  "scripts": {
+    "start": "expo start",
+    "android": "expo run:android",
+    "ios": "expo run:ios",
+    "web": "expo start --web",
+    "build": "tsc",
+    "lint": "eslint . --ext .ts,.tsx",
+    "test": "jest",
+    "clean": "rimraf dist"
+  },
+
+  "dependencies": {
+    "expo": "^54.0.0",
+    "react": "19.1.0",
+    "react-native": "0.81.4"
+  },
+
+  "devDependencies": {
+    "@types/react": "^19.1.10",
+    "@types/react-native": "^0.73.0",
+    "typescript": "^5.9.2",
+    "eslint": "^9.34.0",
+    "jest": "^30.0.5"
+  },
+
+  "engines": {
+    "node": ">=20"
+  }
+}
