@@ -154,8 +154,6 @@ export class AIEngineFactory {
         return this.config.debug;
 
     }
-
-}
 // ==============================
 // Module Registration
 // ==============================
@@ -341,6 +339,7 @@ Promise<IAIEngineFactoryResult> {
 
     return engine;
   }
+
 // ==============================
 // Shutdown
 // ==============================
@@ -401,7 +400,7 @@ Promise<IAIEngineFactoryResult> {
 
     return engine;
 }
-
+}
 
 
 
