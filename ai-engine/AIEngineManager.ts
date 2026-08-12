@@ -14,9 +14,9 @@
  * - Support graceful shutdown
  */
 
-// ==============================
+// ============================================================
 // Core Types
-// ==============================
+// ============================================================
 
 export type AIEngineState =
     | "CREATED"
@@ -28,10 +28,12 @@ export type AIEngineState =
     | "STOPPED"
     | "SHUTDOWN";
 
+
 export type AIEngineMode =
     | "ONLINE"
     | "OFFLINE"
     | "HYBRID";
+
 
 export type AIRequestPriority =
     | "LOW"
@@ -40,9 +42,9 @@ export type AIRequestPriority =
     | "CRITICAL";
 
 
-// ==============================
+// ============================================================
 // Engine Configuration
-// ==============================
+// ============================================================
 
 export interface IAIEngineConfig {
 
@@ -71,9 +73,9 @@ export interface IAIEngineConfig {
 }
 
 
-// ==============================
+// ============================================================
 // Engine Status
-// ==============================
+// ============================================================
 
 export interface IAIEngineStatus {
 
@@ -97,9 +99,9 @@ export interface IAIEngineStatus {
 }
 
 
-// ==============================
+// ============================================================
 // AI Request
-// ==============================
+// ============================================================
 
 export interface IAIEngineRequest {
 
@@ -125,9 +127,9 @@ export interface IAIEngineRequest {
 }
 
 
-// ==============================
+// ============================================================
 // AI Response
-// ==============================
+// ============================================================
 
 export interface IAIEngineResponse {
 
@@ -149,9 +151,9 @@ export interface IAIEngineResponse {
 }
 
 
-// ==============================
+// ============================================================
 // AI Engine Module
-// ==============================
+// ============================================================
 
 export interface IAIEngineModule {
 
@@ -167,9 +169,9 @@ export interface IAIEngineModule {
 }
 
 
-// ==============================
+// ============================================================
 // Engine Event
-// ==============================
+// ============================================================
 
 export interface IAIEngineEvent {
 
@@ -181,17 +183,17 @@ export interface IAIEngineEvent {
 }
 
 
-// ==============================
+// ============================================================
 // Event Handler
-// ==============================
+// ============================================================
 
 export type AIEngineEventHandler =
     (event: IAIEngineEvent) => void;
 
 
-// ==============================
+// ============================================================
 // Default Configuration
-// ==============================
+// ============================================================
 
 const DEFAULT_ENGINE_CONFIG: IAIEngineConfig = {
 
@@ -227,15 +229,15 @@ const DEFAULT_ENGINE_CONFIG: IAIEngineConfig = {
 };
 
 
-// ==============================
+// ============================================================
 // AIEngineManager
-// ==============================
+// ============================================================
 
 export class AIEngineManager {
 
-    // ==============================
+    // ========================================================
     // Private State
-    // ==============================
+    // ========================================================
 
     private config:
         IAIEngineConfig;
@@ -265,9 +267,9 @@ export class AIEngineManager {
         Map<string, Set<AIEngineEventHandler>>;
 
 
-    // ==============================
+    // ========================================================
     // Constructor
-    // ==============================
+    // ========================================================
 
     constructor(
         config?:
@@ -285,18 +287,14 @@ export class AIEngineManager {
                     ? [
                         ...config.enabledModules
                     ]
-                    : [
-                        ...DEFAULT_ENGINE_CONFIG.enabledModules
-                    ],
+                    : [],
 
             metadata:
                 config?.metadata
                     ? {
                         ...config.metadata
                     }
-                    : {
-                        ...DEFAULT_ENGINE_CONFIG.metadata
-                    }
+                    : {}
         };
 
 
@@ -305,10 +303,7 @@ export class AIEngineManager {
 
 
         this.modules =
-            new Map<
-                string,
-                IAIEngineModule
-            >();
+            new Map<string, IAIEngineModule>();
 
 
         this.startTime =
@@ -339,9 +334,9 @@ export class AIEngineManager {
     }
 
 
-    // ==============================
+    // ========================================================
     // Basic Information
-    // ==============================
+    // ========================================================
 
     public getState():
         AIEngineState {
@@ -402,9 +397,9 @@ export class AIEngineManager {
     }
 
 
-    // ==============================
+    // ========================================================
     // Internal State
-    // ==============================
+    // ========================================================
 
     private setState(
         state: AIEngineState
@@ -413,8 +408,7 @@ export class AIEngineManager {
         this.state =
             state;
 
-        this.lastActivity =
-            Date.now();
+        this.updateActivity();
 
         this.emit({
 
@@ -438,8 +432,7 @@ export class AIEngineManager {
             error
         );
 
-        this.lastActivity =
-            Date.now();
+        this.updateActivity();
 
         this.emit({
 
@@ -463,13 +456,14 @@ export class AIEngineManager {
     }
 
 
-    // ==============================
+    // ========================================================
     // Module Management
-    // ==============================
+    // ========================================================
 
     public registerModule(
         module: IAIEngineModule
-    ): boolean {
+    ):
+        boolean {
 
         try {
 
@@ -558,7 +552,8 @@ export class AIEngineManager {
 
     public unregisterModule(
         moduleId: string
-    ): boolean {
+    ):
+        boolean {
 
         if (!moduleId) {
 
@@ -575,7 +570,6 @@ export class AIEngineManager {
         if (removed) {
 
             this.updateActivity();
-
 
             this.emit({
 
@@ -626,9 +620,9 @@ export class AIEngineManager {
     }
 
 
-    // ==============================
+    // ========================================================
     // Engine Lifecycle
-    // ==============================
+    // ========================================================
 
     public async initialize():
         Promise<void> {
@@ -644,7 +638,8 @@ export class AIEngineManager {
 
 
         if (
-            this.state === "RUNNING"
+            this.state === "RUNNING" ||
+            this.state === "READY"
         ) {
 
             return;
@@ -686,7 +681,7 @@ export class AIEngineManager {
                     const message =
                         error instanceof Error
                             ? error.message
-                            : `Module ${module.id} initialization failed`;
+                            : "Module initialization failed";
 
                     throw new Error(
                         `${module.id}: ${message}`
@@ -880,9 +875,9 @@ export class AIEngineManager {
     }
 
 
-    // ==============================
+    // ========================================================
     // Request Processing
-    // ==============================
+    // ========================================================
 
     public async process(
         request: IAIEngineRequest
@@ -948,14 +943,6 @@ export class AIEngineManager {
                     request
             });
 
-
-            /*
-             * Core request routing placeholder.
-             *
-             * Future AI processing modules can be
-             * connected here without changing the
-             * manager lifecycle architecture.
-             */
 
             const response:
                 IAIEngineResponse = {
@@ -1057,9 +1044,9 @@ export class AIEngineManager {
     }
 
 
-    // ==============================
+    // ========================================================
     // Engine Status
-    // ==============================
+    // ========================================================
 
     public getStatus():
         IAIEngineStatus {
@@ -1083,9 +1070,6 @@ export class AIEngineManager {
             tasksRunning:
                 this.activeRequests,
 
-            memoryUsage:
-                undefined,
-
             errors:
                 [
                     ...this.errors
@@ -1100,9 +1084,9 @@ export class AIEngineManager {
     }
 
 
-    // ==============================
+    // ========================================================
     // Health Check
-    // ==============================
+    // ========================================================
 
     public healthCheck():
         boolean {
@@ -1119,14 +1103,15 @@ export class AIEngineManager {
     }
 
 
-    // ==============================
+    // ========================================================
     // Event System
-    // ==============================
+    // ========================================================
 
     public on(
         eventType: string,
         callback: AIEngineEventHandler
-    ): void {
+    ):
+        void {
 
         if (!eventType) {
 
@@ -1155,9 +1140,8 @@ export class AIEngineManager {
         if (!handlers) {
 
             handlers =
-                new Set<
-                    AIEngineEventHandler
-                >();
+                new Set<AIEngineEventHandler>();
+
 
             this.listeners.set(
                 eventType,
@@ -1175,7 +1159,8 @@ export class AIEngineManager {
     public off(
         eventType: string,
         callback: AIEngineEventHandler
-    ): void {
+    ):
+        void {
 
         const handlers =
             this.listeners.get(
@@ -1183,41 +1168,4 @@ export class AIEngineManager {
             );
 
 
-        if (!handlers) {
-
-            return;
-        }
-
-
-        handlers.delete(
-            callback
-        );
-
-
-        if (
-            handlers.size === 0
-        ) {
-
-            this.listeners.delete(
-                eventType
-            );
-        }
-    }
-
-
-    public once(
-        eventType: string,
-        callback: AIEngineEventHandler
-    ): void {
-
-        const wrapper:
-            AIEngineEventHandler =
-            (event) => {
-
-                this.off(
-                    eventType,
-                    wrapper
-                );
-
-                callback(
-             
+    
