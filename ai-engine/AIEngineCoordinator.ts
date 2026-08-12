@@ -940,12 +940,13 @@ void {
 
         } catch(error) {
 
-
-            console.error(
+              console.error(
                 "Coordinator event error",
                 error
             );
         }
+     }
+  }
 // ==============================
 // Validation
 // ==============================
