@@ -1,1152 +1,1108 @@
 /**
  * AIEngineRegistry.ts
  *
- * Central registry system for Universal AI Operating Companion.
+ * Registry for Universal AI Operating Companion.
  *
  * Responsibilities:
- * - Register AI modules
- * - Manage services
- * - Track bridges
- * - Discover capabilities
+ * - Register AI Engine modules
+ * - Unregister modules
+ * - Track module state and health
+ * - Manage module metadata
+ * - Resolve dependencies
+ * - Provide registry health information
+ * - Support lifecycle cleanup
  */
-
 
 // ==============================
 // Core Types
 // ==============================
 
-
-export type RegistryItemType =
-    | "MODULE"
-    | "SERVICE"
-    | "BRIDGE"
-    | "PLUGIN";
-
-
-export type RegistryStatus =
+export type AIRegistryModuleState =
+    | "REGISTERED"
+    | "INITIALIZING"
     | "ACTIVE"
-    | "INACTIVE"
-    | "FAILED"
-    | "LOADING";
+    | "PAUSED"
+    | "ERROR"
+    | "STOPPED"
+    | "DISABLED";
 
-
+export type AIRegistryModuleCategory =
+    | "CORE"
+    | "AI"
+    | "MEMORY"
+    | "VOICE"
+    | "AUTOMATION"
+    | "SECURITY"
+    | "PERMISSIONS"
+    | "NETWORK"
+    | "STORAGE"
+    | "CLOUD"
+    | "ANALYTICS"
+    | "INTEGRATION"
+    | "UI"
+    | "PLUGIN"
+    | "SYSTEM"
+    | "OTHER";
 
 // ==============================
-// Registry Entry Contract
+// Module Definition
 // ==============================
 
+export interface IAIRegistryModule {
 
-export interface IRegistryEntry {
+    moduleId: string;
 
+    moduleName: string;
 
-    id:
-        string;
+    version: string;
 
+    category: AIRegistryModuleCategory | string;
 
-    name:
-        string;
+    state: AIRegistryModuleState;
 
+    capabilities: string[];
 
-    type:
-        RegistryItemType;
+    dependencies: string[];
 
+    health: boolean;
 
-    version:
-        string;
+    description?: string;
 
+    metadata?: Record<string, unknown>;
 
-    status:
-        RegistryStatus;
+    registeredAt?: number;
 
-
-    capabilities:
-        string[];
-
-
-    dependencies:
-        string[];
-
-
-    permissions:
-        string[];
-
-
-    metadata?:
-        Record<string, unknown>;
-
-
-
-    registeredAt:
-        number;
-
+    updatedAt?: number;
 }
 
-
-
-
-
 // ==============================
-// Module Information
+// Registry Entry
 // ==============================
 
+export interface IAIRegistryEntry
+    extends IAIRegistryModule {
 
-export interface IModuleInfo {
+    registeredAt: number;
 
-
-    moduleId:
-        string;
-
-
-    moduleName:
-        string;
-
-
-    version:
-        string;
-
-
-    category:
-        string;
-
-
-    state:
-        RegistryStatus;
-
-
-    capabilities:
-        string[];
-
-
-    dependencies:
-        string[];
-
-
-    health:
-        boolean;
-
-
-    metadata?:
-        Record<string, unknown>;
-
+    updatedAt: number;
 }
 
-
-
-
-
 // ==============================
-// Service Information
+// Registry Statistics
 // ==============================
 
+export interface IAIRegistryStats {
 
-export interface IServiceInfo {
+    total: number;
 
+    active: number;
 
-    serviceId:
-        string;
+    registered: number;
 
+    initializing: number;
 
-    name:
-        string;
+    paused: number;
 
+    error: number;
 
-    type:
-        string;
+    stopped: number;
 
+    disabled: number;
 
-    status:
-        RegistryStatus;
+    healthy: number;
 
-
-    provider:
-        string;
-
-
-    version:
-        string;
-
-
-    capabilities:
-        string[];
-
-
-    metadata?:
-        Record<string, unknown>;
-
+    unhealthy: number;
 }
 
-
-
-
-
 // ==============================
-// Bridge Information
+// Registry Health
 // ==============================
 
+export interface IAIRegistryHealth {
 
-export interface IBridgeInfo {
+    healthy: boolean;
 
+    totalModules: number;
 
-    bridgeId:
-        string;
+    healthyModules: number;
 
+    unhealthyModules: number;
 
-    name:
-        string;
+    errors: string[];
 
-
-    targetModule:
-        string;
-
-
-    status:
-        RegistryStatus;
-
-
-    capabilities:
-        string[];
-
-
-    securityLevel:
-        string;
-
-
-    metadata?:
-        Record<string, unknown>;
-
+    timestamp: number;
 }
+
 // ==============================
-// AIEngineRegistry Class
+// Registry Event
 // ==============================
 
+export interface IAIRegistryEvent {
+
+    type: string;
+
+    moduleId?: string;
+
+    timestamp: number;
+
+    payload?: unknown;
+}
+
+// ==============================
+// Event Listener
+// ==============================
+
+export type AIRegistryEventListener =
+    (
+        event: IAIRegistryEvent
+    ) => void;
+
+// ==============================
+// AIEngineRegistry
+// ==============================
 
 export class AIEngineRegistry {
 
+    private readonly modules:
+        Map<string, IAIRegistryEntry>;
 
-    private modules:
-        Map<string, IModuleInfo>;
+    private readonly listeners:
+        Map<string, Set<AIRegistryEventListener>>;
 
+    private readonly errors:
+        string[];
 
-    private services:
-        Map<string, IServiceInfo>;
-
-
-    private bridges:
-        Map<string, IBridgeInfo>;
-
-
-    private capabilities:
-        Map<string, string[]>;
-
-
-    private createdAt:
-        number;
-
+    private createdAt: number;
 
 
     constructor() {
 
-
         this.modules =
             new Map<
                 string,
-                IModuleInfo
+                IAIRegistryEntry
             >();
 
-
-
-        this.services =
+        this.listeners =
             new Map<
                 string,
-                IServiceInfo
+                Set<AIRegistryEventListener>
             >();
 
-
-
-        this.bridges =
-            new Map<
-                string,
-                IBridgeInfo
-            >();
-
-
-
-        this.capabilities =
-            new Map<
-                string,
-                string[]
-            >();
-
-
+        this.errors = [];
 
         this.createdAt =
             Date.now();
     }
 
 
-
-
-
     // ==============================
-    // Basic Information
+    // Registration
     // ==============================
 
-
-    public getModules():
-        IModuleInfo[] {
-
-
-        return Array.from(
-            this.modules.values()
-        );
-    }
-
-
-
-
-
-    public getServices():
-        IServiceInfo[] {
-
-
-        return Array.from(
-            this.services.values()
-        );
-    }
-
-
-
-
-
-    public getBridges():
-        IBridgeInfo[] {
-
-
-        return Array.from(
-            this.bridges.values()
-        );
-    }
-
-
-
-
-
-    public getCreatedAt():
-        number {
-
-
-        return this.createdAt;
-    }
-
-
-
-
-
-    // ==============================
-    // Existence Checks
-    // ==============================
-
-
-    public hasModule(
-        id: string
-    ):
-    boolean {
-
-
-        return this.modules.has(
-            id
-        );
-    }
-
-
-
-
-
-    public hasService(
-        id: string
-    ):
-    boolean {
-
-
-        return this.services.has(
-            id
-        );
-    }
-
-
-
-
-
-    public hasBridge(
-        id: string
-    ):
-    boolean {
-
-
-        return this.bridges.has(
-            id
-        );
-    }
-}
-// ==============================
-// Module Registry
-// ==============================
-
-
-public registerModule(
-    module: IModuleInfo
-): boolean {
-
-
-    try {
-
-
-        if(
-            !module.moduleId ||
-            !module.moduleName
-        ) {
-
-
-            throw new Error(
-                "Invalid module information"
-            );
-        }
-
-
-
-        this.modules.set(
-
-            module.moduleId,
-
-            module
-
-        );
-
-
-
-        this.indexCapabilities(
-
-            module.moduleId,
-
-            module.capabilities
-
-        );
-
-
-
-        return true;
-
-
-
-    } catch(error) {
-
-
-        return false;
-    }
-}
-
-
-
-
-
-public unregisterModule(
-    moduleId: string
-):
-boolean {
-
-
-    const removed =
-        this.modules.delete(
-            moduleId
-        );
-
-
-    this.capabilities.delete(
-        moduleId
-    );
-
-
-    return removed;
-}
-
-
-
-
-
-public getModule(
-    moduleId: string
-):
-IModuleInfo | undefined {
-
-
-    return this.modules.get(
-        moduleId
-    );
-}
-
-
-
-
-
-public updateModule(
-    module: IModuleInfo
-):
-boolean {
-
-
-    if(
-        !this.modules.has(
-            module.moduleId
-        )
-    ) {
-
-
-        return false;
-    }
-
-
-
-    this.modules.set(
-
-        module.moduleId,
-
-        module
-
-    );
-
-
-
-    this.indexCapabilities(
-
-        module.moduleId,
-
-        module.capabilities
-
-    );
-
-
-
-    return true;
-}
-
-
-
-
-
-// ==============================
-// Service Registry
-// ==============================
-
-
-public registerService(
-    service: IServiceInfo
-):
-boolean {
-
-
-    try {
-
-
-        if(
-            !service.serviceId
-        ) {
-
-
-            throw new Error(
-                "Service id missing"
-            );
-        }
-
-
-
-        this.services.set(
-
-            service.serviceId,
-
-            service
-
-        );
-
-
-
-        return true;
-
-
-
-    } catch(error) {
-
-
-        return false;
-    }
-}
-
-
-
-
-
-public unregisterService(
-    serviceId: string
-):
-boolean {
-
-
-    return this.services.delete(
-        serviceId
-    );
-}
-
-
-
-
-
-public getService(
-    serviceId: string
-):
-IServiceInfo | undefined {
-
-
-    return this.services.get(
-        serviceId
-    );
-}
-
-
-
-
-
-public findServicesByCapability(
-    capability: string
-):
-IServiceInfo[] {
-
-
-    return Array.from(
-
-        this.services.values()
-
-    ).filter(
-
-        service =>
-            service.capabilities.includes(
-                capability
-            )
-
-    );
-}
-// ==============================
-// Bridge Registry
-// ==============================
-
-
-public registerBridge(
-    bridge: IBridgeInfo
-):
-boolean {
-
-
-    try {
-
-
-        if(
-            !bridge.bridgeId ||
-            !bridge.name
-        ) {
-
-
-            throw new Error(
-                "Invalid bridge information"
-            );
-        }
-
-
-
-        this.bridges.set(
-
-            bridge.bridgeId,
-
-            bridge
-
-        );
-
-
-
-        this.indexCapabilities(
-
-            bridge.bridgeId,
-
-            bridge.capabilities
-
-        );
-
-
-
-        return true;
-
-
-
-    } catch(error) {
-
-
-        return false;
-    }
-}
-
-
-
-
-
-public unregisterBridge(
-    bridgeId: string
-):
-boolean {
-
-
-    this.capabilities.delete(
-        bridgeId
-    );
-
-
-    return this.bridges.delete(
-        bridgeId
-    );
-}
-
-
-
-
-
-public getBridge(
-    bridgeId: string
-):
-IBridgeInfo | undefined {
-
-
-    return this.bridges.get(
-        bridgeId
-    );
-}
-
-
-
-
-
-public findBridgesByCapability(
-    capability: string
-):
-IBridgeInfo[] {
-
-
-    return Array.from(
-
-        this.bridges.values()
-
-    ).filter(
-
-        bridge =>
-            bridge.capabilities.includes(
-                capability
-            )
-
-    );
-}
-
-
-
-
-
-// ==============================
-// Capability Index
-// ==============================
-
-
-private indexCapabilities(
-    id: string,
-    capabilities: string[]
-):
-void {
-
-
-    this.capabilities.set(
-
-        id,
-
-        [
-            ...capabilities
-        ]
-
-    );
-}
-
-
-
-
-
-public getCapabilities(
-    id: string
-):
-string[] {
-
-
-    return (
-
-        this.capabilities.get(
-            id
-        )
-        ||
-        []
-
-    );
-}
-
-
-
-
-
-public findCapabilityProvider(
-    capability: string
-):
-string[] {
-
-
-    const providers: string[] = [];
-
-
-
-    for(
-        const [
-            id,
-            caps
-        ]
-        of this.capabilities.entries()
-    ) {
-
-
-        if(
-            caps.includes(
-                capability
-            )
-        ) {
-
-
-            providers.push(
-                id
-            );
-        }
-    }
-
-
-
-    return providers;
-}
-
-
-
-
-
-public search(
-    capability: string
-):
-{
-    modules: IModuleInfo[],
-    services: IServiceInfo[],
-    bridges: IBridgeInfo[]
-} {
-
-
-    return {
-
-
-        modules:
-            this.getModules()
-            .filter(
-
-                module =>
-                    module.capabilities.includes(
-                        capability
-                    )
-
-            ),
-
-
-
-        services:
-            this.getServices()
-            .filter(
-
-                service =>
-                    service.capabilities.includes(
-                        capability
-                    )
-
-            ),
-
-
-
-        bridges:
-            this.getBridges()
-            .filter(
-
-                bridge =>
-                    bridge.capabilities.includes(
-                        capability
-                    )
-
-            )
-
-    };
-}
-// ==============================
-// Event System
-// ==============================
-
-
-private listeners:
-Map<
-    string,
-    Array<(payload: unknown)=>void>
->
-=
-new Map();
-
-
-
-
-
-public on(
-    event:
-    string,
-
-    callback:
-    (payload: unknown)=>void
-
-):
-void {
-
-
-    const handlers =
-        this.listeners.get(
-            event
-        )
-        ||
-        [];
-
-
-
-    handlers.push(
-        callback
-    );
-
-
-
-    this.listeners.set(
-
-        event,
-
-        handlers
-
-    );
-}
-
-
-
-
-
-public emit(
-    event:
-    string,
-
-    payload?:
-    unknown
-
-):
-void {
-
-
-    const handlers =
-        this.listeners.get(
-            event
-        );
-
-
-
-    if(!handlers) {
-
-        return;
-    }
-
-
-
-    for(
-        const handler
-        of handlers
-    ) {
-
+    public registerModule(
+        module: IAIRegistryModule
+    ): boolean {
 
         try {
 
-
-            handler(
-                payload
+            this.validateModuleDefinition(
+                module
             );
 
+            const now =
+                Date.now();
 
-        } catch(error) {
+            const existing =
+                this.modules.get(
+                    module.moduleId
+                );
+
+            const entry:
+                IAIRegistryEntry = {
+
+                ...module,
+
+                capabilities: [
+                    ...module.capabilities
+                ],
+
+                dependencies: [
+                    ...module.dependencies
+                ],
+
+                registeredAt:
+                    existing?.registeredAt ??
+                    module.registeredAt ??
+                    now,
+
+                updatedAt:
+                    now
+            };
+
+            this.modules.set(
+                module.moduleId,
+                entry
+            );
+
+            this.emit({
+                type:
+                    existing
+                        ? "MODULE.UPDATED"
+                        : "MODULE.REGISTERED",
+
+                moduleId:
+                    module.moduleId,
+
+                timestamp:
+                    now,
+
+                payload:
+                    entry
+            });
+
+            return true;
+
+        } catch (error) {
+
+            this.addError(
+                error instanceof Error
+                    ? error.message
+                    : "Module registration failed"
+            );
+
+            return false;
+        }
+    }
 
 
-            console.error(
-                "Registry event error",
-                error
+    // ==============================
+    // Unregister
+    // ==============================
+
+    public unregisterModule(
+        moduleId: string
+    ): boolean {
+
+        const removed =
+            this.modules.delete(
+                moduleId
+            );
+
+        if (removed) {
+
+            this.emit({
+
+                type:
+                    "MODULE.UNREGISTERED",
+
+                moduleId,
+
+                timestamp:
+                    Date.now()
+            });
+        }
+
+        return removed;
+    }
+
+
+    // ==============================
+    // Get Module
+    // ==============================
+
+    public getModule(
+        moduleId: string
+    ):
+        IAIRegistryEntry | undefined {
+
+        return this.modules.get(
+            moduleId
+        );
+    }
+
+
+    // ==============================
+    // Has Module
+    // ==============================
+
+    public hasModule(
+        moduleId: string
+    ): boolean {
+
+        return this.modules.has(
+            moduleId
+        );
+    }
+
+
+    // ==============================
+    // Get All Modules
+    // ==============================
+
+    public getModules():
+        IAIRegistryEntry[] {
+
+        return Array.from(
+            this.modules.values()
+        ).map(
+            module => ({
+                ...module,
+
+                capabilities: [
+                    ...module.capabilities
+                ],
+
+                dependencies: [
+                    ...module.dependencies
+                ]
+            })
+        );
+    }
+
+
+    // ==============================
+    // Get Module IDs
+    // ==============================
+
+    public getModuleIds():
+        string[] {
+
+        return Array.from(
+            this.modules.keys()
+        );
+    }
+
+
+    // ==============================
+    // Module Count
+    // ==============================
+
+    public getModuleCount():
+        number {
+
+        return this.modules.size;
+    }
+
+
+    // ==============================
+    // Update Module State
+    // ==============================
+
+    public setModuleState(
+        moduleId: string,
+        state: AIRegistryModuleState
+    ): boolean {
+
+        const module =
+            this.modules.get(
+                moduleId
+            );
+
+        if (!module) {
+
+            this.addError(
+                `Module not found: ${moduleId}`
+            );
+
+            return false;
+        }
+
+        module.state =
+            state;
+
+        module.updatedAt =
+            Date.now();
+
+        this.emit({
+
+            type:
+                "MODULE.STATE_CHANGED",
+
+            moduleId,
+
+            timestamp:
+                Date.now(),
+
+            payload:
+                state
+        });
+
+        return true;
+    }
+
+
+    // ==============================
+    // Update Health
+    // ==============================
+
+    public setModuleHealth(
+        moduleId: string,
+        health: boolean
+    ): boolean {
+
+        const module =
+            this.modules.get(
+                moduleId
+            );
+
+        if (!module) {
+
+            this.addError(
+                `Module not found: ${moduleId}`
+            );
+
+            return false;
+        }
+
+        module.health =
+            health;
+
+        module.updatedAt =
+            Date.now();
+
+        this.emit({
+
+            type:
+                "MODULE.HEALTH_CHANGED",
+
+            moduleId,
+
+            timestamp:
+                Date.now(),
+
+            payload:
+                health
+        });
+
+        return true;
+    }
+
+
+    // ==============================
+    // Update Capabilities
+    // ==============================
+
+    public setModuleCapabilities(
+        moduleId: string,
+        capabilities: string[]
+    ): boolean {
+
+        const module =
+            this.modules.get(
+                moduleId
+            );
+
+        if (!module) {
+
+            this.addError(
+                `Module not found: ${moduleId}`
+            );
+
+            return false;
+        }
+
+        module.capabilities =
+            [
+                ...capabilities
+            ];
+
+        module.updatedAt =
+            Date.now();
+
+        this.emit({
+
+            type:
+                "MODULE.CAPABILITIES_CHANGED",
+
+            moduleId,
+
+            timestamp:
+                Date.now(),
+
+            payload:
+                capabilities
+        });
+
+        return true;
+    }
+
+
+    // ==============================
+    // Find By Category
+    // ==============================
+
+    public getModulesByCategory(
+        category: string
+    ):
+        IAIRegistryEntry[] {
+
+        return this.getModules().filter(
+            module =>
+                module.category === category
+        );
+    }
+
+
+    // ==============================
+    // Find By State
+    // ==============================
+
+    public getModulesByState(
+        state: AIRegistryModuleState
+    ):
+        IAIRegistryEntry[] {
+
+        return this.getModules().filter(
+            module =>
+                module.state === state
+        );
+    }
+
+
+    // ==============================
+    // Find By Capability
+    // ==============================
+
+    public findByCapability(
+        capability: string
+    ):
+        IAIRegistryEntry[] {
+
+        return this.getModules().filter(
+            module =>
+                module.capabilities.includes(
+                    capability
+                )
+        );
+    }
+
+
+    // ==============================
+    // Find By Dependency
+    // ==============================
+
+    public findDependents(
+        moduleId: string
+    ):
+        IAIRegistryEntry[] {
+
+        return this.getModules().filter(
+            module =>
+                module.dependencies.includes(
+                    moduleId
+                )
+        );
+    }
+
+
+    // ==============================
+    // Dependency Check
+    // ==============================
+
+    public areDependenciesAvailable(
+        moduleId: string
+    ): boolean {
+
+        const module =
+            this.modules.get(
+                moduleId
+            );
+
+        if (!module) {
+            return false;
+        }
+
+        return module.dependencies.every(
+            dependency =>
+                this.modules.has(
+                    dependency
+                )
+        );
+    }
+
+
+    // ==============================
+    // Missing Dependencies
+    // ==============================
+
+    public getMissingDependencies(
+        moduleId: string
+    ):
+        string[] {
+
+        const module =
+            this.modules.get(
+                moduleId
+            );
+
+        if (!module) {
+            return [];
+        }
+
+        return module.dependencies.filter(
+            dependency =>
+                !this.modules.has(
+                    dependency
+                )
+        );
+    }
+
+
+    // ==============================
+    // Statistics
+    // ==============================
+
+    public getStats():
+        IAIRegistryStats {
+
+        const modules =
+            this.getModules();
+
+        return {
+
+            total:
+                modules.length,
+
+            active:
+                this.countState(
+                    modules,
+                    "ACTIVE"
+                ),
+
+            registered:
+                this.countState(
+                    modules,
+                    "REGISTERED"
+                ),
+
+            initializing:
+                this.countState(
+                    modules,
+                    "INITIALIZING"
+                ),
+
+            paused:
+                this.countState(
+                    modules,
+                    "PAUSED"
+                ),
+
+            error:
+                this.countState(
+                    modules,
+                    "ERROR"
+                ),
+
+            stopped:
+                this.countState(
+                    modules,
+                    "STOPPED"
+                ),
+
+            disabled:
+                this.countState(
+                    modules,
+                    "DISABLED"
+                ),
+
+            healthy:
+                modules.filter(
+                    module =>
+                        module.health
+                ).length,
+
+            unhealthy:
+                modules.filter(
+                    module =>
+                        !module.health
+                ).length
+        };
+    }
+
+
+    // ==============================
+    // Health Check
+    // ==============================
+
+    public healthCheck():
+        IAIRegistryHealth {
+
+        const modules =
+            this.getModules();
+
+        const unhealthy =
+            modules.filter(
+                module =>
+                    !module.health ||
+                    module.state === "ERROR"
+            );
+
+        const errors:
+            string[] = [
+                ...this.errors
+            ];
+
+        for (
+            const module
+            of unhealthy
+        ) {
+
+            errors.push(
+                `Module unhealthy: ${module.moduleId}`
+            );
+        }
+
+        return {
+
+            healthy:
+                modules.length === 0
+                    ? true
+                    : unhealthy.length === 0,
+
+            totalModules:
+                modules.length,
+
+            healthyModules:
+                modules.length -
+                unhealthy.length,
+
+            unhealthyModules:
+                unhealthy.length,
+
+            errors,
+
+            timestamp:
+                Date.now()
+        };
+    }
+
+
+    // ==============================
+    // Validation
+    // ==============================
+
+    public validateModule(
+        module: IAIRegistryModule
+    ): boolean {
+
+        try {
+
+            this.validateModuleDefinition(
+                module
+            );
+
+            return true;
+
+        } catch {
+
+            return false;
+        }
+    }
+
+
+    private validateModuleDefinition(
+        module: IAIRegistryModule
+    ): void {
+
+        if (!module) {
+
+            throw new Error(
+                "Module definition is missing"
+            );
+        }
+
+        if (!module.moduleId) {
+
+            throw new Error(
+                "Module ID is missing"
+            );
+        }
+
+        if (!module.moduleName) {
+
+            throw new Error(
+                `Module name is missing: ${module.moduleId}`
+            );
+        }
+
+        if (!module.version) {
+
+            throw new Error(
+                `Module version is missing: ${module.moduleId}`
+            );
+        }
+
+        if (!module.category) {
+
+            throw new Error(
+                `Module category is missing: ${module.moduleId}`
+            );
+        }
+
+        if (!Array.isArray(
+            module.capabilities
+        )) {
+
+            throw new Error(
+                `Module capabilities must be an array: ${module.moduleId}`
+            );
+        }
+
+        if (!Array.isArray(
+            module.dependencies
+        )) {
+
+            throw new Error(
+                `Module dependencies must be an array: ${module.moduleId}`
             );
         }
     }
-}
 
 
+    // ==============================
+    // Errors
+    // ==============================
 
+    private addError(
+        error: string
+    ): void {
 
+        this.errors.push(
+            error
+        );
 
-// ==============================
-// Validation
-// ==============================
+        this.emit({
 
+            type:
+                "REGISTRY.ERROR",
 
-public validateModule(
-    module:
-    IModuleInfo
-):
-boolean {
+            timestamp:
+                Date.now(),
 
+            payload:
+                error
+        });
+    }
 
-    return !!(
 
-        module.moduleId
-        &&
-        module.moduleName
-        &&
-        module.version
+    public getErrors():
+        string[] {
 
-    );
-}
+        return [
+            ...this.errors
+        ];
+    }
 
 
+    public clearErrors():
+        void {
 
+        this.errors.length =
+            0;
+    }
 
 
-public validateService(
-    service:
-    IServiceInfo
-):
-boolean {
+    // ==============================
+    // Events
+    // ==============================
 
+    public on(
+        eventType: string,
+        listener: AIRegistryEventListener
+    ): () => void {
 
-    return !!(
+        let handlers =
+            this.listeners.get(
+                eventType
+            );
 
-        service.serviceId
-        &&
-        service.name
+        if (!handlers) {
 
-    );
-}
+            handlers =
+                new Set<
+                    AIRegistryEventListener
+                >();
 
+            this.listeners.set(
+                eventType,
+                handlers
+            );
+        }
 
+        handlers.add(
+            listener
+        );
 
+        return () => {
 
+            handlers?.delete(
+                listener
+            );
+        };
+    }
 
-public validateBridge(
-    bridge:
-    IBridgeInfo
-):
-boolean {
 
+    public off(
+        eventType: string,
+        listener: AIRegistryEventListener
+    ): void {
 
-    return !!(
+        const handlers =
+            this.listeners.get(
+                eventType
+            );
 
-        bridge.bridgeId
-        &&
-        bridge.name
+        if (!handlers) {
+            return;
+        }
 
-    );
-}
+        handlers.delete(
+            listener
+        );
 
+        if (
+            handlers.size === 0
+        ) {
 
+            this.listeners.delete(
+                eventType
+            );
+        }
+    }
 
 
+    private emit(
+        event: IAIRegistryEvent
+    ): void {
 
-// ==============================
-// Registry Status
-// ==============================
+        const handlers =
+            this.listeners.get(
+                event.type
+            );
 
+        if (!handlers) {
+            return;
+        }
 
-public getStatus():
-Record<string, unknown>
-{
+        for (
+            const handler
+            of handlers
+        ) {
 
+            try {
 
-    return {
+                handler(
+                    event
+                );
 
+            } catch (error) {
 
-        modules:
-            this.modules.size,
+                this.errors.push(
 
+                    error instanceof Error
+                        ? error.message
+                        : "Registry event handler failed"
 
-        services:
-            this.services.size,
+                );
+            }
+        }
+    }
 
 
-        bridges:
-            this.bridges.size,
+    // ==============================
+    // Export Registry
+    // ==============================
 
+    public export():
+        IAIRegistryEntry[] {
 
-        capabilities:
-            this.capabilities.size,
+        return this.getModules();
+    }
 
 
-        createdAt:
-            this.createdAt
+    // ==============================
+    // Import Registry
+    // ==============================
 
-    };
-}
+    public import(
+        modules: IAIRegistryModule[]
+    ): number {
 
+        if (!Array.isArray(
+            modules
+        )) {
 
+            return 0;
+        }
 
+        let imported =
+            0;
 
+        for (
+            const module
+            of modules
+        ) {
 
-// ==============================
-// Clear Registry
-// ==============================
+            if (
+                this.registerModule(
+                    module
+                )
+            ) {
 
+                imported++;
+            }
+        }
 
-public clear():
-void {
+        return imported;
+    }
 
 
-    this.modules.clear();
+    // ==============================
+    // Registry Information
+    // ==============================
 
+    public getRegistryInfo():
+        Record<string, unknown> {
 
-    this.services.clear();
+        return {
 
+            createdAt:
+                this.createdAt,
 
-    this.bridges.clear();
+            moduleCount:
+                this.modules.size,
 
+            stats:
+                this.getStats(),
 
-    this.capabilities.clear();
+            health:
+                this.healthCheck(),
 
+            errors:
+                this.getErrors()
+        };
+    }
 
-    this.listeners.clear();
-}
 
+    // ==============================
+    // Clear Registry
+    // ==============================
 
+    public clear():
+        void {
 
+        const moduleIds =
+            this.getModuleIds();
 
+        this.modules.clear();
 
-public isEmpty():
-boolean {
+        this.emit({
 
+            type:
+                "REGISTRY.CLEARED",
 
-    return (
+            timestamp:
+                Date.now(),
 
-        this.modules.size === 0
-
-        &&
-
-        this.services.size === 
+            paylo
