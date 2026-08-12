@@ -16,7 +16,6 @@
 // Core Types
 // ==============================
 
-
 export type AIEngineState =
     | "CREATED"
     | "INITIALIZING"
@@ -41,172 +40,257 @@ export type AIRequestPriority =
     | "CRITICAL";
 
 
-
 // ==============================
 // Interfaces
 // ==============================
 
-
 export interface IAIEngineConfig {
 
-    engineId: string;
+    engineId:
+        string;
 
-    version: string;
+    version:
+        string;
 
     environment:
         | "development"
         | "production"
         | "testing";
 
-    mode: AIEngineMode;
+    mode:
+        AIEngineMode;
 
-    language: string;
+    language:
+        string;
 
-    enabledModules: string[];
+    enabledModules:
+        string[];
 
-    securityLevel: string;
+    securityLevel:
+        string;
 
-    memoryMode: string;
+    memoryMode:
+        string;
 
-    performanceMode: string;
+    performanceMode:
+        string;
 
-    metadata?: Record<string, unknown>;
+    metadata?:
+        Record<string, unknown>;
 }
-
 
 
 export interface IAIEngineStatus {
 
-    state: AIEngineState;
+    state:
+        AIEngineState;
 
-    uptime: number;
+    uptime:
+        number;
 
-    activeModules: string[];
+    activeModules:
+        string[];
 
-    loadedModels: string[];
+    loadedModels:
+        string[];
 
-    tasksRunning: number;
+    tasksRunning:
+        number;
 
-    memoryUsage?: number;
+    memoryUsage?:
+        number;
 
-    errors: string[];
+    errors:
+        string[];
 
-    lastActivity: number;
+    lastActivity:
+        number;
 
-    timestamp: number;
+    timestamp:
+        number;
 }
-
 
 
 export interface IAIEngineRequest {
 
-    id: string;
+    id:
+        string;
 
-    input: unknown;
+    input:
+        unknown;
 
-    type: string;
+    type:
+        string;
 
-    source?: string;
+    source?:
+        string;
 
-    context?: Record<string, unknown>;
+    context?:
+        Record<string, unknown>;
 
-    priority?: AIRequestPriority;
+    priority?:
+        AIRequestPriority;
 
-    permissions?: string[];
+    permissions?:
+        string[];
 
-    sessionId?: string;
+    sessionId?:
+        string;
 
-    timestamp: number;
+    timestamp:
+        number;
 
-    metadata?: Record<string, unknown>;
+    metadata?:
+        Record<string, unknown>;
 }
-
 
 
 export interface IAIEngineResponse {
 
-    success: boolean;
+    success:
+        boolean;
 
-    result?: unknown;
+    result?:
+        unknown;
 
-    intent?: string;
+    intent?:
+        string;
 
-    executionPath?: string[];
+    executionPath?:
+        string[];
 
-    confidence?: number;
+    confidence?:
+        number;
 
-    processingTime?: number;
+    processingTime?:
+        number;
 
-    error?: string;
+    error?:
+        string;
 
-    metadata?: Record<string, unknown>;
+    metadata?:
+        Record<string, unknown>;
 }
-
 
 
 export interface IAIEngineModule {
 
-    id: string;
+    id:
+        string;
 
-    name: string;
+    name:
+        string;
 
-    initialize(): Promise<void>;
+    initialize():
+        Promise<void>;
 
-    shutdown(): Promise<void>;
+    shutdown():
+        Promise<void>;
 
-    getStatus(): unknown;
+    getStatus():
+        unknown;
 }
-
 
 
 export interface IAIEngineEvent {
 
-    type: string;
+    type:
+        string;
 
-  // ==============================
+    timestamp:
+        number;
+
+    payload?:
+        unknown;
+}
+
+
+// ==============================
 // AIEngineManager Class
 // ==============================
 
-
 export class AIEngineManager {
 
+    private config:
+        IAIEngineConfig;
 
-    private config: IAIEngineConfig;
 
-
-    private state: AIEngineState;
+    private state:
+        AIEngineState;
 
 
     private modules:
         Map<string, IAIEngineModule>;
 
 
-    private startTime: number;
+    private startTime:
+        number;
 
 
-    private errors: string[];
+    private errors:
+        string[];
 
 
-    private requestCount: number;
+    private requestCount:
+        number;
+
+
+    private lastActivity:
+        number;
 
 
     private listeners:
         Map<
             string,
-            Array<(event: IAIEngineEvent)=>void>
+            Array<(event: IAIEngineEvent) => void>
         >;
 
 
+    // ==============================
+    // Constructor
+    // ==============================
 
     constructor(
-        config: IAIEngineConfig
+        config?:
+        Partial<IAIEngineConfig>
     ) {
 
+        this.config = {
 
-        this.config = config;
+            engineId:
+                "universal-ai-engine",
+
+            version:
+                "1.0.0",
+
+            environment:
+                "production",
+
+            mode:
+                "HYBRID",
+
+            language:
+                "en",
+
+            enabledModules:
+                [],
+
+            securityLevel:
+                "STANDARD",
+
+            memoryMode:
+                "STANDARD",
+
+            performanceMode:
+                "BALANCED",
+
+            ...config
+
+        };
 
 
-        this.state = "CREATED";
+        this.state =
+            "CREATED";
 
 
         this.modules =
@@ -216,57 +300,59 @@ export class AIEngineManager {
             >();
 
 
-
         this.startTime =
             Date.now();
 
 
+        this.lastActivity =
+            Date.now();
 
-        this.errors = [];
+
+        this.errors =
+            [];
 
 
-        this.requestCount = 0;
-
+        this.requestCount =
+            0;
 
 
         this.listeners =
-            new Map();
+            new Map<
+                string,
+                Array<(event: IAIEngineEvent) => void>
+            >();
     }
-
-
-
 
 
     // ==============================
     // Basic Information
     // ==============================
 
-
     public getState():
         AIEngineState {
-
 
         return this.state;
     }
 
 
-
-
-
     public getConfig():
         IAIEngineConfig {
 
+        return {
 
-        return this.config;
+            ...this.config,
+
+            enabledModules:
+                [
+                    ...this.config.enabledModules
+                ]
+
+        };
     }
-
-
-
 
 
     public getModules():
         string[] {
-
 
         return Array.from(
             this.modules.keys()
@@ -274,12 +360,8 @@ export class AIEngineManager {
     }
 
 
-
-
-
     public getErrors():
         string[] {
-
 
         return [
             ...this.errors
@@ -287,20 +369,29 @@ export class AIEngineManager {
     }
 
 
+    public getRequestCount():
+        number {
 
+        return this.requestCount;
+    }
 
 
     // ==============================
     // Internal State
     // ==============================
 
-
     private setState(
-        state: AIEngineState
-    ): void {
+        state:
+        AIEngineState
+    ):
+        void {
+
+        this.state =
+            state;
 
 
-        this.state = state;
+        this.lastActivity =
+            Date.now();
 
 
         this.emit({
@@ -313,21 +404,24 @@ export class AIEngineManager {
 
             payload:
                 state
+
         });
     }
 
 
-
-
-
     private addError(
-        error: string
-    ): void {
-
+        error:
+        string
+    ):
+        void {
 
         this.errors.push(
             error
         );
+
+
+        this.lastActivity =
+            Date.now();
 
 
         this.emit({
@@ -340,763 +434,937 @@ export class AIEngineManager {
 
             payload:
                 error
+
         });
     }
-          }
-    timestamp: number;
-
-    payload?: unknown;
-}
-
-// ==============================
-// Module Management
-// ==============================
 
 
-public registerModule(
-    module: IAIEngineModule
-): boolean {
+    // ==============================
+    // Module Management
+    // ==============================
+
+    public registerModule(
+        module:
+        IAIEngineModule
+    ):
+        boolean {
+
+        try {
+
+            if (!module) {
+
+                throw new Error(
+                    "Module is required"
+                );
+            }
 
 
-    try {
+            if (!module.id) {
+
+                throw new Error(
+                    "Module id missing"
+                );
+            }
 
 
-        if (!module.id) {
+            if (!module.name) {
+
+                throw new Error(
+                    "Module name missing"
+                );
+            }
+
+
+            this.modules.set(
+
+                module.id,
+
+                module
+
+            );
+
+
+            if (
+                !this.config.enabledModules.includes(
+                    module.id
+                )
+            ) {
+
+                this.config.enabledModules.push(
+                    module.id
+                );
+            }
+
+
+            this.lastActivity =
+                Date.now();
+
+
+            this.emit({
+
+                type:
+                    "MODULE.REGISTERED",
+
+                timestamp:
+                    Date.now(),
+
+                payload:
+                    module.id
+
+            });
+
+
+            return true;
+
+
+        } catch (error) {
+
+            this.addError(
+
+                error instanceof Error
+                    ? error.message
+                    : "Module registration failed"
+
+            );
+
+
+            return false;
+        }
+    }
+
+
+    public unregisterModule(
+        moduleId:
+        string
+    ):
+        boolean {
+
+        const removed =
+            this.modules.delete(
+                moduleId
+            );
+
+
+        if (removed) {
+
+            this.config.enabledModules =
+                this.config.enabledModules.filter(
+
+                    id =>
+                        id !== moduleId
+
+                );
+
+
+            this.lastActivity =
+                Date.now();
+
+
+            this.emit({
+
+                type:
+                    "MODULE.REMOVED",
+
+                timestamp:
+                    Date.now(),
+
+                payload:
+                    moduleId
+
+            });
+        }
+
+
+        return removed;
+    }
+
+
+    public getModule(
+        moduleId:
+        string
+    ):
+        IAIEngineModule | undefined {
+
+        return this.modules.get(
+            moduleId
+        );
+    }
+
+
+    public hasModule(
+        moduleId:
+        string
+    ):
+        boolean {
+
+        return this.modules.has(
+            moduleId
+        );
+    }
+
+
+    // ==============================
+    // Engine Lifecycle
+    // ==============================
+
+    public async initialize():
+        Promise<void> {
+
+        try {
+
+            if (
+                this.state === "READY" ||
+                this.state === "RUNNING"
+            ) {
+
+                return;
+            }
+
+
+            this.setState(
+                "INITIALIZING"
+            );
+
+
+            for (
+                const module
+                of this.modules.values()
+            ) {
+
+                await module.initialize();
+
+            }
+
+
+            this.lastActivity =
+                Date.now();
+
+
+            this.setState(
+                "READY"
+            );
+
+
+            this.emit({
+
+                type:
+                    "ENGINE.READY",
+
+                timestamp:
+                    Date.now()
+
+            });
+
+
+        } catch (error) {
+
+            this.setState(
+                "ERROR"
+            );
+
+
+            this.addError(
+
+                error instanceof Error
+                    ? error.message
+                    : "Initialization failed"
+
+            );
+
+
+            throw error;
+        }
+    }
+
+
+    public async start():
+        Promise<void> {
+
+        if (
+            this.state !== "READY" &&
+            this.state !== "PAUSED"
+        ) {
 
             throw new Error(
-                "Module id missing"
+                "Engine cannot start. Engine must be READY or PAUSED."
             );
         }
 
 
-        this.modules.set(
-            module.id,
-            module
-        );
-
-
-        this.emit({
-
-            type:
-                "MODULE.REGISTERED",
-
-            timestamp:
-                Date.now(),
-
-            payload:
-                module.id
-        });
-
-
-        return true;
-
-
-
-    } catch(error) {
-
-
-        this.addError(
-
-            error instanceof Error
-                ? error.message
-                : "Module registration failed"
-
-        );
-
-
-        return false;
-    }
-}
-
-
-
-
-
-public unregisterModule(
-    moduleId: string
-): boolean {
-
-
-    const removed =
-        this.modules.delete(
-            moduleId
-        );
-
-
-    if(removed) {
-
-
-        this.emit({
-
-            type:
-                "MODULE.REMOVED",
-
-            timestamp:
-                Date.now(),
-
-            payload:
-                moduleId
-        });
-    }
-
-
-    return removed;
-}
-
-
-
-
-
-public getModule(
-    moduleId: string
-):
-IAIEngineModule | undefined {
-
-
-    return this.modules.get(
-        moduleId
-    );
-}
-
-
-
-
-
-// ==============================
-// Engine Lifecycle
-// ==============================
-
-
-public async initialize():
-Promise<void> {
-
-
-    try {
-
-
         this.setState(
-            "INITIALIZING"
+            "RUNNING"
         );
 
 
-        for(
-            const module
-            of this.modules.values()
-        ) {
+        this.startTime =
+            Date.now();
 
 
-            await module.initialize();
-
-        }
-
-
-        this.setState(
-            "READY"
-        );
+        this.lastActivity =
+            Date.now();
 
 
         this.emit({
 
             type:
-                "ENGINE.READY",
+                "ENGINE.STARTED",
 
             timestamp:
                 Date.now()
+
         });
-
-
-
-    } catch(error) {
-
-
-        this.setState(
-            "ERROR"
-        );
-
-
-        this.addError(
-
-            error instanceof Error
-                ? error.message
-                : "Initialization failed"
-
-        );
-
-
-        throw error;
-    }
-}
-
-
-
-
-
-public async start():
-Promise<void> {
-
-
-    if(
-        this.state !== "READY" &&
-        this.state !== "PAUSED"
-    ) {
-
-
-        throw new Error(
-            "Engine cannot start"
-        );
     }
 
 
+    public async pause():
+        Promise<void> {
 
-    this.setState(
-        "RUNNING"
-    );
-
-
-    this.startTime =
-        Date.now();
-}
-
-
-
-
-
-public async pause():
-Promise<void> {
-
-
-    if(
-        this.state !== "RUNNING"
-    ) {
-
-
-        throw new Error(
-            "Engine is not running"
-        );
-    }
-
-
-    this.setState(
-        "PAUSED"
-    );
-}
-
-
-
-
-
-public async resume():
-Promise<void> {
-
-
-    if(
-        this.state !== "PAUSED"
-    ) {
-
-
-        throw new Error(
-            "Engine is not paused"
-        );
-    }
-
-
-    this.setState(
-        "RUNNING"
-    );
-}
-
-
-
-
-
-public async stop():
-Promise<void> {
-
-
-    this.setState(
-        "STOPPED"
-    );
-}
-
-
-
-
-
-public async restart():
-Promise<void> {
-
-
-    await this.stop();
-
-
-    await this.initialize();
-
-
-    await this.start();
-          }
-// ==============================
-// Request Processing
-// ==============================
-
-
-public async process(
-    request: IAIEngineRequest
-): Promise<IAIEngineResponse> {
-
-
-    const startTime =
-        Date.now();
-
-
-    try {
-
-
-        if(
+        if (
             this.state !== "RUNNING"
         ) {
 
-
             throw new Error(
-                "AI Engine is not running"
+                "Engine is not running"
             );
         }
 
 
-        this.requestCount++;
-
-
-
-        this.emit({
-
-            type:
-                "ENGINE.REQUEST_RECEIVED",
-
-            timestamp:
-                Date.now(),
-
-            payload:
-                request
-        });
-
-
-
-
-        const response:
-            IAIEngineResponse = {
-
-
-            success: true,
-
-
-            result: {
-
-                message:
-                    "Request processed",
-
-                requestId:
-                    request.id
-            },
-
-
-            executionPath: [
-
-                "AIEngineManager"
-
-            ],
-
-
-            confidence:
-                1,
-
-
-            processingTime:
-                Date.now() - startTime
-
-        };
-
-
-
-        this.emit({
-
-            type:
-                "ENGINE.RESPONSE_CREATED",
-
-            timestamp:
-                Date.now(),
-
-            payload:
-                response
-        });
-
-
-
-        return response;
-
-
-
-    } catch(error) {
-
-
-
-        const message =
-            error instanceof Error
-                ? error.message
-                : "Processing failed";
-
-
-
-        this.addError(
-            message
-        );
-
-
-
-        return {
-
-
-            success: false,
-
-
-            error:
-                message,
-
-
-            processingTime:
-                Date.now() - startTime
-
-        };
-    }
-}
-
-
-
-
-
-// ==============================
-// Engine Status
-// ==============================
-
-
-public getStatus():
-IAIEngineStatus {
-
-
-    return {
-
-
-        state:
-            this.state,
-
-
-        uptime:
-            Date.now()
-            -
-            this.startTime,
-
-
-        activeModules:
-            this.getModules(),
-
-
-        loadedModels:
-            [],
-
-
-        tasksRunning:
-            this.requestCount,
-
-
-        errors:
-            [
-                ...this.errors
-            ],
-
-
-        lastActivity:
-            Date.now(),
-
-
-        timestamp:
-            Date.now()
-    };
-}
-
-
-
-
-
-// ==============================
-// Health Check
-// ==============================
-
-
-public healthCheck():
-boolean {
-
-
-    return (
-
-        this.state === "READY"
-
-        ||
-
-        this.state === "RUNNING"
-
-    );
-}
-
-
-
-
-
-// ==============================
-// Event System
-// ==============================
-
-
-public on(
-
-    eventType: string,
-
-    callback:
-    (event: IAIEngineEvent)=>void
-
-): void {
-
-
-    const handlers =
-
-        this.listeners
-  // ==============================
-// Shutdown
-// ==============================
-
-
-public async shutdown():
-Promise<void> {
-
-
-    try {
-
-
-        for(
-            const module
-            of this.modules.values()
-        ) {
-
-
-            await module.shutdown();
-
-        }
-
-
-
-        this.modules.clear();
-
-
-
-        this.listeners.clear();
-
-
-
         this.setState(
-            "SHUTDOWN"
+            "PAUSED"
         );
-
 
 
         this.emit({
 
             type:
-                "ENGINE.SHUTDOWN",
+                "ENGINE.PAUSED",
 
             timestamp:
                 Date.now()
 
         });
+    }
 
 
+    public async resume():
+        Promise<void> {
 
-    } catch(error) {
+        if (
+            this.state !== "PAUSED"
+        ) {
+
+            throw new Error(
+                "Engine is not paused"
+            );
+        }
 
 
         this.setState(
-            "ERROR"
+            "RUNNING"
         );
 
 
-        this.addError(
+        this.emit({
 
-            error instanceof Error
-                ? error.message
-                : "Shutdown failed"
+            type:
+                "ENGINE.RESUMED",
 
-        );
+            timestamp:
+                Date.now()
 
-
-        throw error;
-    }
-}
-
-
-
-
-
-// ==============================
-// Validation
-// ==============================
-
-
-public validateConfig():
-boolean {
-
-
-    if(
-        !this.config.engineId
-    ) {
-
-
-        this.addError(
-            "Engine ID is missing"
-        );
-
-
-        return false;
+        });
     }
 
 
+    public async stop():
+        Promise<void> {
 
-    if(
-        !this.config.version
-    ) {
+        if (
+            this.state === "STOPPED"
+        ) {
+
+            return;
+        }
 
 
-        this.addError(
-            "Engine version is missing"
+        this.setState(
+            "STOPPED"
         );
 
 
-        return false;
+        this.emit({
+
+            type:
+                "ENGINE.STOPPED",
+
+            timestamp:
+                Date.now()
+
+        });
     }
 
 
+    public async restart():
+        Promise<void> {
 
-    return true;
-}
+        await this.stop();
 
+        await this.initialize();
 
+        await this.start();
+    }
 
 
+    // ==============================
+    // Request Processing
+    // ==============================
 
-public validateModule(
-    module: IAIEngineModule
-):
-boolean {
+    public async process(
+        request:
+        IAIEngineRequest
+    ):
+        Promise<IAIEngineResponse> {
 
+        const processingStart =
+            Date.now();
 
-    return !!(
-        module.id
-        &&
-        module.name
-    );
-}
 
+        try {
 
+            if (
+                this.state !== "RUNNING"
+            ) {
 
+                throw new Error(
+                    "AI Engine is not running"
+                );
+            }
 
 
-// ==============================
-// Utility Methods
-// ==============================
+            if (
+                !this.validateRequest(
+                    request
+                )
+            ) {
 
+                throw new Error(
+                    "Invalid AI engine request"
+                );
+            }
 
-public clearErrors():
-void {
 
+            this.requestCount++;
 
-    this.errors = [];
 
-}
+            this.lastActivity =
+                Date.now();
 
 
+            this.emit({
 
+                type:
+                    "ENGINE.REQUEST_RECEIVED",
 
+                timestamp:
+                    Date.now(),
 
-public getRequestCount():
-number {
+                payload:
+                    request
 
+            });
 
-    return this.requestCount;
 
-}
+            const response:
+                IAIEngineResponse = {
 
+                success:
+                    true,
 
+                result: {
 
+                    message:
+                        "Request processed",
 
+                    requestId:
+                        request.id
 
-public isRunning():
-boolean {
+                },
 
+                executionPath: [
 
-    return (
-        this.state === "RUNNING"
-    );
+                    "AIEngineManager"
 
-}
+                ],
 
+                confidence:
+                    1,
 
+                processingTime:
+                    Date.now()
+                    -
+                    processingStart
 
+            };
 
 
-public isReady():
-boolean {
+            this.lastActivity =
+                Date.now();
 
 
-    return (
-        this.state === "READY"
-    );
+            this.emit({
 
-}
+                type:
+                    "ENGINE.RESPONSE_CREATED",
 
+                timestamp:
+                    Date.now(),
 
+                payload:
+                    response
 
+            });
 
 
-public getEngineInfo():
-Record<string, unknown> {
+            return response;
 
 
-    return {
+        } catch (error) {
 
+            const message =
+                error instanceof Error
+                    ? error.message
+                    : "Processing failed";
 
-        engineId:
-            this.config.engineId,
 
+            this.addError(
+                message
+            );
 
-        version:
-            this.config.version,
 
+            return {
 
-        mode:
-            this.config.mode,
+                success:
+                    false,
 
+                error:
+                    message,
 
-        state:
-            this.state,
+                processingTime:
+                    Date.now()
+                    -
+                    processingStart
 
+            };
+        }
+    }
 
-        modules:
-            this.getModules(),
 
+    // ==============================
+    // Engine Status
+    // ==============================
 
-        requests:
-            this.requestCount,
+    public getStatus():
+        IAIEngineStatus {
 
+        return {
 
-        uptime:
-            Date.now()
-            -
-            this.startTime
+            state:
+                this.state,
 
-    };
-}
+            uptime:
+                Date.now()
+                -
+                this.startTime,
+
+            activeModules:
+                this.getModules(),
+
+            loadedModels:
+                [],
+
+            tasksRunning:
+                this.state === "RUNNING"
+                    ? this.requestCount
+                    : 0,
+
+            errors:
+                [
+                    ...this.errors
+                ],
+
+            lastActivity:
+                this.lastActivity,
+
+            timestamp:
+                Date.now()
+
+        };
+    }
+
+
+    // ==============================
+    // Health Check
+    // ==============================
+
+    public healthCheck():
+        boolean {
+
+        return (
+
+            this.state === "READY"
+
+            ||
+
+            this.state === "RUNNING"
+
+        );
+    }
+
+
+    // ==============================
+    // Event System
+    // ==============================
+
+    public on(
+        eventType:
+        string,
+
+        callback:
+        (event: IAIEngineEvent) => void
+
+    ):
+        void {
+
+        const handlers =
+            this.listeners.get(
+                eventType
+            )
+            ||
+            [];
+
+
+        handlers.push(
+            callback
+        );
+
+
+        this.listeners.set(
+
+            eventType,
+
+            handlers
+
+        );
+    }
+
+
+    public off(
+        eventType:
+        string,
+
+        callback:
+        (event: IAIEngineEvent) => void
+
+    ):
+        void {
+
+        const handlers =
+            this.listeners.get(
+                eventType
+            );
+
+
+        if (!handlers) {
+
+            return;
+        }
+
+
+        const filtered =
+            handlers.filter(
+
+                handler =>
+                    handler !== callback
+
+            );
+
+
+        if (
+            filtered.length === 0
+        ) {
+
+            this.listeners.delete(
+                eventType
+            );
+
+        } else {
+
+            this.listeners.set(
+
+                eventType,
+
+                filtered
+
+            );
+        }
+    }
+
+
+    private emit(
+        event:
+        IAIEngineEvent
+    ):
+        void {
+
+        const handlers =
+            this.listeners.get(
+                event.type
+            );
+
+
+        if (!handlers) {
+
+            return;
+        }
+
+
+        for (
+            const handler
+            of handlers
+        ) {
+
+            try {
+
+                handler(
+                    event
+                );
+
+            } catch (error) {
+
+                this.addError(
+
+                    error instanceof Error
+                        ? error.message
+                        : "Event handler error"
+
+                );
+            }
+        }
+    }
+
+
+    // ==============================
+    // Shutdown
+    // ==============================
+
+    public async shutdown():
+        Promise<void> {
+
+        try {
+
+            for (
+                const module
+                of this.modules.values()
+            ) {
+
+                await module.shutdown();
+
+            }
+
+
+            this.modules.clear();
+
+
+            this.config.enabledModules =
+                [];
+
+
+            this.setState(
+                "SHUTDOWN"
+            );
+
+
+            this.emit({
+
+                type:
+                    "ENGINE.SHUTDOWN",
+
+                timestamp:
+                    Date.now()
+
+            });
+
+
+            this.listeners.clear();
+
+
+        } catch (error) {
+
+            this.setState(
+                "ERROR"
+            );
+
+
+            this.addError(
+
+                error instanceof Error
+                    ? error.message
+                    : "Shutdown failed"
+
+            );
+
+
+            throw error;
+        }
+    }
+
+
+    // ==============================
+    // Validation
+    // ==============================
+
+    public validateConfig():
+        boolean {
+
+        if (
+            !this.config.engineId
+        ) {
+
+            this.addError(
+                "Engine ID is missing"
+            );
+
+
+            return false;
+        }
+
+
+        if (
+            !this.config.version
+        ) {
+
+            this.addError(
+                "Engine version is missing"
+            );
+
+
+            return false;
+        }
+
+
+        if (
+            !this.config.environment
+        ) {
+
+            this.addError(
+                "Engine environment is missing"
+            );
+
+
+            return false;
+        }
+
+
+        if (
+            !this.config.mode
+        ) {
+
+            this.addError(
+                "Engine mode is missing"
+            );
+
+
+            return false;
+        }
+
+
+        return true;
+    }
+
+
+    public validateRequest(
+        request:
+        IAIEngineRequest
+    ):
+        boolean {
+
+        return !!(
+
+            request
+
+            &&
+
+            request.id
+
+            &&
+
+            request.type
+
+        );
+    }
+
+
+    public validateModule(
+        module:
+        IAIEngineModule
+    ):
+        boolean {
+
+        return !!(
+
+            module
+
+            &&
+
+            module.id
+
+            &&
+
+            module.name
+
+            &&
+
+            typeof module.initialize === "function"
+
+            &&
+
+            typeof module.shutdown === "function"
+
+        );
+    }
+
+
+    // ==============================
+    // Utility Methods
+    // ==============================
+
+    public clearErrors():
+        void {
+
+        this.errors =
+            [];
+
+
+        this.lastActivity =
+            Date.now();
+    }
+
+
+    public resetRequestCount():
+        void {
+
+        this.requestCount =
+            0;
+
+
+        this.lastActivity =
+            Date.now();
+    }
+
+
+    public isRunning():
+        boolean {
+
+        return (
+            this.state === "RUNNING"
+ 
