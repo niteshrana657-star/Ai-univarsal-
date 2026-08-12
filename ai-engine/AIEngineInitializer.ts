@@ -380,7 +380,7 @@ export class AIEngineInitializer {
             warning
         );
     }
-}
+
 // ==============================
 // Initialization Flow
 // ==============================
