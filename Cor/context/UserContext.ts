@@ -105,11 +105,8 @@ export class UserContext {
         key: string,
         value: unknown
     ): void {
-
-
-        this.context.preferences[key] =
-            value;
-
+       
+        this.context.preferences[key] = value;
 
         this.context.lastActivity =
             Date.now();
