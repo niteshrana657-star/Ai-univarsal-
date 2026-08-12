@@ -123,8 +123,8 @@ export class UserContext {
     ): T | undefined {
 
 
-        return this.context.preferences[key]
-            as T | undefined;
+               return this.context.preferences[key] as 
+T | undefined; 
 
     }
 
