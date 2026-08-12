@@ -140,4 +140,11 @@ export class AccessibilityPermissionManager {
 
     if (!this.provider) {
 
-      throw new
+            throw new Error(
+        "Accessibility permission provider unavailable"
+      );
+    }
+
+    await this.provider.openPermissionSettings();
+  }
+}
