@@ -5,12 +5,13 @@
  *
  * Responsibilities:
  * - Manage AI Engine lifecycle
- * - Coordinate modules
- * - Handle AI requests
+ * - Register and manage modules
+ * - Process AI requests
  * - Maintain engine state
- * - Connect AI ecosystem
- * - Provide engine events
- * - Provide health and status information
+ * - Handle engine events
+ * - Provide health/status information
+ * - Manage errors
+ * - Support graceful shutdown
  */
 
 // ==============================
@@ -40,7 +41,7 @@ export type AIRequestPriority =
 
 
 // ==============================
-// Interfaces
+// Engine Configuration
 // ==============================
 
 export interface IAIEngineConfig {
@@ -70,6 +71,10 @@ export interface IAIEngineConfig {
 }
 
 
+// ==============================
+// Engine Status
+// ==============================
+
 export interface IAIEngineStatus {
 
     state: AIEngineState;
@@ -91,6 +96,10 @@ export interface IAIEngineStatus {
     timestamp: number;
 }
 
+
+// ==============================
+// AI Request
+// ==============================
 
 export interface IAIEngineRequest {
 
@@ -116,6 +125,10 @@ export interface IAIEngineRequest {
 }
 
 
+// ==============================
+// AI Response
+// ==============================
+
 export interface IAIEngineResponse {
 
     success: boolean;
@@ -136,6 +149,10 @@ export interface IAIEngineResponse {
 }
 
 
+// ==============================
+// AI Engine Module
+// ==============================
+
 export interface IAIEngineModule {
 
     id: string;
@@ -149,6 +166,10 @@ export interface IAIEngineModule {
     getStatus(): unknown;
 }
 
+
+// ==============================
+// Engine Event
+// ==============================
 
 export interface IAIEngineEvent {
 
@@ -169,32 +190,79 @@ export type AIEngineEventHandler =
 
 
 // ==============================
+// Default Configuration
+// ==============================
+
+const DEFAULT_ENGINE_CONFIG: IAIEngineConfig = {
+
+    engineId:
+        "universal-ai-operating-companion",
+
+    version:
+        "1.0.0",
+
+    environment:
+        "production",
+
+    mode:
+        "HYBRID",
+
+    language:
+        "en",
+
+    enabledModules:
+        [],
+
+    securityLevel:
+        "STANDARD",
+
+    memoryMode:
+        "ENABLED",
+
+    performanceMode:
+        "BALANCED",
+
+    metadata:
+        {}
+};
+
+
+// ==============================
 // AIEngineManager
 // ==============================
 
 export class AIEngineManager {
 
-    private config: IAIEngineConfig;
+    // ==============================
+    // Private State
+    // ==============================
 
-    private state: AIEngineState;
+    private config:
+        IAIEngineConfig;
+
+    private state:
+        AIEngineState;
 
     private modules:
         Map<string, IAIEngineModule>;
 
-    private startTime: number;
+    private startTime:
+        number;
 
-    private createdAt: number;
+    private lastActivity:
+        number;
 
-    private errors: string[];
+    private errors:
+        string[];
 
-    private requestCount: number;
+    private requestCount:
+        number;
 
-    private runningTasks: number;
-
-    private lastActivity: number;
+    private activeRequests:
+        number;
 
     private listeners:
-        Map<string, AIEngineEventHandler[]>;
+        Map<string, Set<AIEngineEventHandler>>;
 
 
     // ==============================
@@ -208,35 +276,27 @@ export class AIEngineManager {
 
         this.config = {
 
-            engineId:
-                "universal-ai-engine",
+            ...DEFAULT_ENGINE_CONFIG,
 
-            version:
-                "1.0.0",
-
-            environment:
-                "production",
-
-            mode:
-                "HYBRID",
-
-            language:
-                "en",
+            ...config,
 
             enabledModules:
-                [],
+                config?.enabledModules
+                    ? [
+                        ...config.enabledModules
+                    ]
+                    : [
+                        ...DEFAULT_ENGINE_CONFIG.enabledModules
+                    ],
 
-            securityLevel:
-                "STANDARD",
-
-            memoryMode:
-                "ENABLED",
-
-            performanceMode:
-                "BALANCED",
-
-            ...config
-
+            metadata:
+                config?.metadata
+                    ? {
+                        ...config.metadata
+                    }
+                    : {
+                        ...DEFAULT_ENGINE_CONFIG.metadata
+                    }
         };
 
 
@@ -251,12 +311,12 @@ export class AIEngineManager {
             >();
 
 
-        this.createdAt =
+        this.startTime =
             Date.now();
 
 
-        this.startTime =
-            this.createdAt;
+        this.lastActivity =
+            Date.now();
 
 
         this.errors =
@@ -267,18 +327,14 @@ export class AIEngineManager {
             0;
 
 
-        this.runningTasks =
+        this.activeRequests =
             0;
-
-
-        this.lastActivity =
-            this.createdAt;
 
 
         this.listeners =
             new Map<
                 string,
-                AIEngineEventHandler[]
+                Set<AIEngineEventHandler>
             >();
     }
 
@@ -301,17 +357,15 @@ export class AIEngineManager {
 
             ...this.config,
 
-            enabledModules: [
-                ...this.config.enabledModules
-            ],
+            enabledModules:
+                [
+                    ...this.config.enabledModules
+                ],
 
             metadata:
-                this.config.metadata
-                    ? {
-                        ...this.config.metadata
-                    }
-                    : undefined
-
+                {
+                    ...(this.config.metadata || {})
+                }
         };
     }
 
@@ -341,10 +395,10 @@ export class AIEngineManager {
     }
 
 
-    public getRunningTaskCount():
+    public getActiveRequestCount():
         number {
 
-        return this.runningTasks;
+        return this.activeRequests;
     }
 
 
@@ -352,24 +406,15 @@ export class AIEngineManager {
     // Internal State
     // ==============================
 
-    private touchActivity():
-        void {
-
-        this.lastActivity =
-            Date.now();
-    }
-
-
     private setState(
-        state:
-        AIEngineState
-    ):
-        void {
+        state: AIEngineState
+    ): void {
 
         this.state =
             state;
 
-        this.touchActivity();
+        this.lastActivity =
+            Date.now();
 
         this.emit({
 
@@ -381,22 +426,20 @@ export class AIEngineManager {
 
             payload:
                 state
-
         });
     }
 
 
     private addError(
-        error:
-        string
-    ):
-        void {
+        error: string
+    ): void {
 
         this.errors.push(
             error
         );
 
-        this.touchActivity();
+        this.lastActivity =
+            Date.now();
 
         this.emit({
 
@@ -408,8 +451,15 @@ export class AIEngineManager {
 
             payload:
                 error
-
         });
+    }
+
+
+    private updateActivity():
+        void {
+
+        this.lastActivity =
+            Date.now();
     }
 
 
@@ -418,17 +468,15 @@ export class AIEngineManager {
     // ==============================
 
     public registerModule(
-        module:
-        IAIEngineModule
-    ):
-        boolean {
+        module: IAIEngineModule
+    ): boolean {
 
         try {
 
             if (!module) {
 
                 throw new Error(
-                    "Module is required"
+                    "Module is missing"
                 );
             }
 
@@ -436,7 +484,7 @@ export class AIEngineManager {
             if (!module.id) {
 
                 throw new Error(
-                    "Module id missing"
+                    "Module id is missing"
                 );
             }
 
@@ -444,19 +492,27 @@ export class AIEngineManager {
             if (!module.name) {
 
                 throw new Error(
-                    "Module name missing"
+                    "Module name is missing"
                 );
             }
 
 
             if (
-                this.modules.has(
-                    module.id
-                )
+                typeof module.initialize !== "function"
             ) {
 
                 throw new Error(
-                    `Module already registered: ${module.id}`
+                    `Module ${module.id} has no initialize method`
+                );
+            }
+
+
+            if (
+                typeof module.shutdown !== "function"
+            ) {
+
+                throw new Error(
+                    `Module ${module.id} has no shutdown method`
                 );
             }
 
@@ -467,7 +523,7 @@ export class AIEngineManager {
             );
 
 
-            this.touchActivity();
+            this.updateActivity();
 
 
             this.emit({
@@ -480,12 +536,10 @@ export class AIEngineManager {
 
                 payload:
                     module.id
-
             });
 
 
             return true;
-
 
         } catch (error) {
 
@@ -503,10 +557,8 @@ export class AIEngineManager {
 
 
     public unregisterModule(
-        moduleId:
-        string
-    ):
-        boolean {
+        moduleId: string
+    ): boolean {
 
         if (!moduleId) {
 
@@ -522,7 +574,7 @@ export class AIEngineManager {
 
         if (removed) {
 
-            this.touchActivity();
+            this.updateActivity();
 
 
             this.emit({
@@ -535,7 +587,6 @@ export class AIEngineManager {
 
                 payload:
                     moduleId
-
             });
         }
 
@@ -545,8 +596,7 @@ export class AIEngineManager {
 
 
     public getModule(
-        moduleId:
-        string
+        moduleId: string
     ):
         IAIEngineModule | undefined {
 
@@ -557,14 +607,22 @@ export class AIEngineManager {
 
 
     public hasModule(
-        moduleId:
-        string
+        moduleId: string
     ):
         boolean {
 
         return this.modules.has(
             moduleId
         );
+    }
+
+
+    public clearModules():
+        void {
+
+        this.modules.clear();
+
+        this.updateActivity();
     }
 
 
@@ -576,8 +634,7 @@ export class AIEngineManager {
         Promise<void> {
 
         if (
-            this.state ===
-            "SHUTDOWN"
+            this.state === "SHUTDOWN"
         ) {
 
             throw new Error(
@@ -587,8 +644,15 @@ export class AIEngineManager {
 
 
         if (
-            this.state ===
-            "RUNNING"
+            this.state === "RUNNING"
+        ) {
+
+            return;
+        }
+
+
+        if (
+            this.state === "INITIALIZING"
         ) {
 
             return;
@@ -602,20 +666,15 @@ export class AIEngineManager {
             );
 
 
-            this.emit({
-
-                type:
-                    "ENGINE.INITIALIZATION_STARTED",
-
-                timestamp:
-                    Date.now()
-
-            });
+            const modules =
+                Array.from(
+                    this.modules.values()
+                );
 
 
             for (
                 const module
-                of this.modules.values()
+                of modules
             ) {
 
                 try {
@@ -627,10 +686,10 @@ export class AIEngineManager {
                     const message =
                         error instanceof Error
                             ? error.message
-                            : `Failed to initialize module: ${module.id}`;
+                            : `Module ${module.id} initialization failed`;
 
                     throw new Error(
-                        message
+                        `${module.id}: ${message}`
                     );
                 }
             }
@@ -648,9 +707,7 @@ export class AIEngineManager {
 
                 timestamp:
                     Date.now()
-
             });
-
 
         } catch (error) {
 
@@ -663,7 +720,7 @@ export class AIEngineManager {
 
                 error instanceof Error
                     ? error.message
-                    : "Initialization failed"
+                    : "Engine initialization failed"
 
             );
 
@@ -677,11 +734,8 @@ export class AIEngineManager {
         Promise<void> {
 
         if (
-            this.state !==
-                "READY"
-            &&
-            this.state !==
-                "PAUSED"
+            this.state !== "READY" &&
+            this.state !== "PAUSED"
         ) {
 
             throw new Error(
@@ -692,6 +746,9 @@ export class AIEngineManager {
 
         this.startTime =
             Date.now();
+
+
+        this.updateActivity();
 
 
         this.setState(
@@ -706,7 +763,6 @@ export class AIEngineManager {
 
             timestamp:
                 Date.now()
-
         });
     }
 
@@ -715,8 +771,7 @@ export class AIEngineManager {
         Promise<void> {
 
         if (
-            this.state !==
-            "RUNNING"
+            this.state !== "RUNNING"
         ) {
 
             throw new Error(
@@ -737,7 +792,6 @@ export class AIEngineManager {
 
             timestamp:
                 Date.now()
-
         });
     }
 
@@ -746,8 +800,7 @@ export class AIEngineManager {
         Promise<void> {
 
         if (
-            this.state !==
-            "PAUSED"
+            this.state !== "PAUSED"
         ) {
 
             throw new Error(
@@ -768,7 +821,6 @@ export class AIEngineManager {
 
             timestamp:
                 Date.now()
-
         });
     }
 
@@ -777,8 +829,7 @@ export class AIEngineManager {
         Promise<void> {
 
         if (
-            this.state ===
-            "SHUTDOWN"
+            this.state === "SHUTDOWN"
         ) {
 
             return;
@@ -797,7 +848,6 @@ export class AIEngineManager {
 
             timestamp:
                 Date.now()
-
         });
     }
 
@@ -806,8 +856,7 @@ export class AIEngineManager {
         Promise<void> {
 
         if (
-            this.state ===
-            "SHUTDOWN"
+            this.state === "SHUTDOWN"
         ) {
 
             throw new Error(
@@ -817,11 +866,8 @@ export class AIEngineManager {
 
 
         if (
-            this.state !==
-            "STOPPED"
-            &&
-            this.state !==
-            "ERROR"
+            this.state === "RUNNING" ||
+            this.state === "PAUSED"
         ) {
 
             await this.stop();
@@ -839,8 +885,7 @@ export class AIEngineManager {
     // ==============================
 
     public async process(
-        request:
-        IAIEngineRequest
+        request: IAIEngineRequest
     ):
         Promise<IAIEngineResponse> {
 
@@ -848,94 +893,68 @@ export class AIEngineManager {
             Date.now();
 
 
-        if (!request) {
-
-            return {
-
-                success:
-                    false,
-
-                error:
-                    "Request is required",
-
-                processingTime:
-                    Date.now()
-                    -
-                    processingStart
-
-            };
-        }
-
-
-        if (!request.id) {
-
-            return {
-
-                success:
-                    false,
-
-                error:
-                    "Request id is required",
-
-                processingTime:
-                    Date.now()
-                    -
-                    processingStart
-
-            };
-        }
-
-
-        if (
-            this.state !==
-            "RUNNING"
-        ) {
-
-            return {
-
-                success:
-                    false,
-
-                error:
-                    "AI Engine is not running",
-
-                processingTime:
-                    Date.now()
-                    -
-                    processingStart
-
-            };
-        }
-
-
-        this.requestCount++;
-
-        this.runningTasks++;
-
-        this.touchActivity();
-
-
-        this.emit({
-
-            type:
-                "ENGINE.REQUEST_RECEIVED",
-
-            timestamp:
-                Date.now(),
-
-            payload:
-                request
-
-        });
-
-
         try {
 
+            if (
+                this.state !== "RUNNING"
+            ) {
+
+                throw new Error(
+                    "AI Engine is not running"
+                );
+            }
+
+
+            if (!request) {
+
+                throw new Error(
+                    "Request is missing"
+                );
+            }
+
+
+            if (!request.id) {
+
+                throw new Error(
+                    "Request id is missing"
+                );
+            }
+
+
+            if (!request.type) {
+
+                throw new Error(
+                    "Request type is missing"
+                );
+            }
+
+
+            this.requestCount++;
+
+            this.activeRequests++;
+
+            this.updateActivity();
+
+
+            this.emit({
+
+                type:
+                    "ENGINE.REQUEST_RECEIVED",
+
+                timestamp:
+                    Date.now(),
+
+                payload:
+                    request
+            });
+
+
             /*
-             * Current orchestration layer.
+             * Core request routing placeholder.
              *
-             * Module-specific AI execution will be
-             * connected here by the AI Engine routing layer.
+             * Future AI processing modules can be
+             * connected here without changing the
+             * manager lifecycle architecture.
              */
 
             const response:
@@ -952,13 +971,9 @@ export class AIEngineManager {
                     requestId:
                         request.id,
 
-                    input:
-                        request.input
-
+                    type:
+                        request.type
                 },
-
-                intent:
-                    request.type,
 
                 executionPath: [
 
@@ -972,8 +987,16 @@ export class AIEngineManager {
                 processingTime:
                     Date.now()
                     -
-                    processingStart
+                    processingStart,
 
+                metadata: {
+
+                    engineId:
+                        this.config.engineId,
+
+                    engineVersion:
+                        this.config.version
+                }
             };
 
 
@@ -987,19 +1010,17 @@ export class AIEngineManager {
 
                 payload:
                     response
-
             });
 
 
             return response;
-
 
         } catch (error) {
 
             const message =
                 error instanceof Error
                     ? error.message
-                    : "Processing failed";
+                    : "Request processing failed";
 
 
             this.addError(
@@ -1007,8 +1028,7 @@ export class AIEngineManager {
             );
 
 
-            const response:
-                IAIEngineResponse = {
+            return {
 
                 success:
                     false,
@@ -1020,37 +1040,19 @@ export class AIEngineManager {
                     Date.now()
                     -
                     processingStart
-
             };
-
-
-            this.emit({
-
-                type:
-                    "ENGINE.REQUEST_FAILED",
-
-                timestamp:
-                    Date.now(),
-
-                payload:
-                    response
-
-            });
-
-
-            return response;
-
 
         } finally {
 
-            this.runningTasks =
-                Math.max(
-                    0,
-                    this.runningTasks - 1
-                );
+            if (
+                this.activeRequests > 0
+            ) {
+
+                this.activeRequests--;
+            }
 
 
-            this.touchActivity();
+            this.updateActivity();
         }
     }
 
@@ -1079,7 +1081,10 @@ export class AIEngineManager {
                 [],
 
             tasksRunning:
-                this.runningTasks,
+                this.activeRequests,
+
+            memoryUsage:
+                undefined,
 
             errors:
                 [
@@ -1091,7 +1096,6 @@ export class AIEngineManager {
 
             timestamp:
                 Date.now()
-
         };
     }
 
@@ -1103,38 +1107,15 @@ export class AIEngineManager {
     public healthCheck():
         boolean {
 
-        if (
-            this.state !==
-                "READY"
-            &&
-            this.state !==
-                "RUNNING"
-            &&
-            this.state !==
-                "PAUSED"
-        ) {
+        return (
 
-            return false;
-        }
+            this.state === "READY" ||
 
+            this.state === "RUNNING" ||
 
-        for (
-            const module
-            of this.modules.values()
-        ) {
+            this.state === "PAUSED"
 
-            try {
-
-                module.getStatus();
-
-            } catch {
-
-                return false;
-            }
-        }
-
-
-        return true;
+        );
     }
 
 
@@ -1143,53 +1124,58 @@ export class AIEngineManager {
     // ==============================
 
     public on(
-        eventType:
-        string,
+        eventType: string,
+        callback: AIEngineEventHandler
+    ): void {
 
-        callback:
-        AIEngineEventHandler
-    ):
-        void {
+        if (!eventType) {
 
-        if (
-            !eventType
-            ||
-            typeof callback !==
-                "function"
-        ) {
-
-            return;
+            throw new Error(
+                "Event type is required"
+            );
         }
 
 
-        const handlers =
+        if (
+            typeof callback !== "function"
+        ) {
+
+            throw new Error(
+                "Event callback must be a function"
+            );
+        }
+
+
+        let handlers =
             this.listeners.get(
                 eventType
-            )
-            ??
-            [];
+            );
 
 
-        handlers.push(
+        if (!handlers) {
+
+            handlers =
+                new Set<
+                    AIEngineEventHandler
+                >();
+
+            this.listeners.set(
+                eventType,
+                handlers
+            );
+        }
+
+
+        handlers.add(
             callback
-        );
-
-
-        this.listeners.set(
-            eventType,
-            handlers
         );
     }
 
 
     public off(
-        eventType:
-        string,
-
-        callback:
-        AIEngineEventHandler
-    ):
-        void {
+        eventType: string,
+        callback: AIEngineEventHandler
+    ): void {
 
         const handlers =
             this.listeners.get(
@@ -1203,85 +1189,35 @@ export class AIEngineManager {
         }
 
 
-        const remaining =
-            handlers.filter(
-                handler =>
-                    handler !== callback
-            );
+        handlers.delete(
+            callback
+        );
 
 
         if (
-            remaining.length ===
-            0
+            handlers.size === 0
         ) {
 
             this.listeners.delete(
                 eventType
             );
-
-            return;
-        }
-
-
-        this.listeners.set(
-            eventType,
-            remaining
-        );
-    }
-
-
-    public emit(
-        event:
-        IAIEngineEvent
-    ):
-        void {
-
-        const handlers =
-            this.listeners.get(
-                event.type
-            );
-
-
-        if (!handlers) {
-
-            return;
-        }
-
-
-        for (
-            const handler
-            of [
-                ...handlers
-            ]
-        ) {
-
-            try {
-
-                handler(
-                    event
-                );
-
-            } catch (error) {
-
-                this.addError(
-
-                    error instanceof Error
-                        ? error.message
-                        : "Event handler error"
-
-                );
-            }
         }
     }
 
 
-    // ==============================
-    // Validation
-    // ==============================
+    public once(
+        eventType: string,
+        callback: AIEngineEventHandler
+    ): void {
 
-    public validateConfig():
-        boolean {
+        const wrapper:
+            AIEngineEventHandler =
+            (event) => {
 
-        if (
-            !this.config.engineId
-   
+                this.off(
+                    eventType,
+                    wrapper
+                );
+
+                callback(
+             
