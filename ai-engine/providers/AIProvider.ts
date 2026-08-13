@@ -84,7 +84,9 @@ export interface AIProviderConfig {
 }
 
 
-// Backward-compatible configuration name
+/**
+ * Backward-compatible configuration name.
+ */
 export type IAIProviderConfig =
     AIProviderConfig;
 
@@ -115,7 +117,9 @@ export interface AIProviderRequest {
 }
 
 
-// Backward-compatible request name
+/**
+ * Backward-compatible request name.
+ */
 export type IAIProviderRequest =
     AIProviderRequest;
 
@@ -126,16 +130,41 @@ export type IAIProviderRequest =
 
 export interface AIProviderResponse {
 
+    /**
+     * Whether provider execution succeeded.
+     */
     success: boolean;
 
-    text: string;
+    /**
+     * Generated response text.
+     *
+     * Optional for backward compatibility with
+     * existing providers that currently return
+     * `content` instead.
+     */
+    text?: string;
 
+    /**
+     * Provider identifier/name.
+     */
     provider: string;
 
+    /**
+     * Model used for generation.
+     */
     model: string;
 
-    timestamp: number;
+    /**
+     * Response timestamp.
+     *
+     * Optional for backward compatibility with
+     * existing provider implementations.
+     */
+    timestamp?: number;
 
+    /**
+     * Legacy/content response field.
+     */
     content?: string;
 
     finishReason?: string;
@@ -154,7 +183,9 @@ export interface AIProviderResponse {
 }
 
 
-// Backward-compatible response name
+/**
+ * Backward-compatible response name.
+ */
 export type IAIProviderResponse =
     AIProviderResponse;
 
@@ -166,48 +197,57 @@ export type IAIProviderResponse =
 export interface AIProvider {
 
     /**
-     * Unique provider ID
+     * Unique provider ID.
      */
     readonly id: string;
 
     /**
-     * Provider name
+     * Provider identifier.
      */
     readonly provider: string;
 
     /**
-     * Human-readable name
+     * Human-readable provider name.
      */
     readonly name: string;
 
     /**
-     * Connect provider
+     * Connect provider.
      */
     connect(): Promise<boolean>;
 
     /**
-     * Disconnect provider
+     * Disconnect provider.
      */
     disconnect(): Promise<void>;
 
     /**
-     * Check connection
+     * Check connection.
      */
     isConnected(): boolean;
 
     /**
-     * Get provider status
+     * Get provider status.
      */
     getStatus(): ProviderStatus;
 
     /**
-     * Generate AI response
+     * Generate AI response.
      */
     generate(
         request: AIProviderRequest
     ): Promise<AIProviderResponse>;
-
 }
+
+
+/**
+ * Backward-compatible interface name.
+ *
+ * Existing Local/Ollama/OpenAI implementations
+ * currently import IAIProvider.
+ */
+export type IAIProvider =
+    AIProvider;
 
 
 // =============================================================
@@ -249,7 +289,9 @@ export interface AIProviderHealth {
 }
 
 
-// Backward-compatible health name
+/**
+ * Backward-compatible health name.
+ */
 export type IAIProviderHealth =
     AIProviderHealth;
 
@@ -274,7 +316,9 @@ export interface AIProviderMetrics {
 }
 
 
-// Backward-compatible metrics name
+/**
+ * Backward-compatible metrics name.
+ */
 export type IAIProviderMetrics =
     AIProviderMetrics;
 
@@ -307,7 +351,9 @@ export interface AIProviderFactory {
 }
 
 
-// Backward-compatible factory name
+/**
+ * Backward-compatible factory name.
+ */
 export type IAIProviderFactory =
     AIProviderFactory;
 
@@ -332,7 +378,9 @@ export interface AIProviderRegistryEntry {
 }
 
 
-// Backward-compatible registry name
+/**
+ * Backward-compatible registry entry name.
+ */
 export type IAIProviderRegistryEntry =
     AIProviderRegistryEntry;
 
