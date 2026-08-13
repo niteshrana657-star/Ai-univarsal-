@@ -15,8 +15,8 @@
  * - Usage metadata extraction
  * - Provider statistics
  *
- * This implementation intentionally uses the Gemini REST API
- * directly and does not depend on a specific Gemini SDK version.
+ * This implementation uses the Gemini REST API directly.
+ * It intentionally avoids dependency on a Gemini SDK version.
  */
 
 // ============================================================
@@ -171,11 +171,13 @@ export interface IGeminiProviderInfo {
     successfulRequests: number;
 
     failedRequests: number;
+
+    averageProcessingTime: number;
 }
 
 
 // ============================================================
-// Internal Gemini REST Types
+// Internal REST Types
 // ============================================================
 
 interface GeminiPart {
@@ -212,6 +214,18 @@ interface GeminiApiUsage {
 }
 
 
+interface GeminiApiError {
+
+    code?: number;
+
+    message?: string;
+
+    status?: string;
+
+    details?: unknown[];
+}
+
+
 interface GeminiApiResponse {
 
     candidates?: GeminiCandidate[];
@@ -220,17 +234,38 @@ interface GeminiApiResponse {
 
     promptFeedback?: unknown;
 
-    error?: {
-
-        code?: number;
-
-        message?: string;
-
-        status?: string;
-
-        details?: unknown[];
-    };
+    error?: GeminiApiError;
 }
+
+
+// ============================================================
+// Internal Fetch Types
+// ============================================================
+
+interface GeminiFetchResponse {
+
+    ok: boolean;
+
+    status: number;
+
+    statusText: string;
+
+    text(): Promise<string>;
+}
+
+
+type GeminiFetchFunction = (
+    input: string,
+    init?: {
+        method?: string;
+
+        headers?: Record<string, string>;
+
+        body?: string;
+
+        signal?: AbortSignal;
+    }
+) => Promise<GeminiFetchResponse>;
 
 
 // ============================================================
@@ -240,30 +275,37 @@ interface GeminiApiResponse {
 const DEFAULT_MODEL =
     "gemini-2.5-flash";
 
+
 const DEFAULT_API_VERSION =
     "v1beta";
+
 
 const DEFAULT_BASE_URL =
     "https://generativelanguage.googleapis.com";
 
+
 const DEFAULT_TEMPERATURE =
     0.7;
+
 
 const DEFAULT_TOP_P =
     0.95;
 
+
 const DEFAULT_TOP_K =
     40;
 
+
 const DEFAULT_MAX_OUTPUT_TOKENS =
     2048;
+
 
 const DEFAULT_TIMEOUT =
     60000;
 
 
 // ============================================================
-// GeminiProvider
+// Gemini Provider
 // ============================================================
 
 export class GeminiProvider {
@@ -405,7 +447,7 @@ export class GeminiProvider {
         try {
 
             const globalObject =
-                globalThis as {
+                globalThis as unknown as {
                     process?: {
                         env?: Record<
                             string,
@@ -435,6 +477,36 @@ export class GeminiProvider {
 
             return undefined;
         }
+    }
+
+
+    // ========================================================
+    // Fetch Function
+    // ========================================================
+
+    private getFetchFunction():
+        GeminiFetchFunction {
+
+        const globalObject =
+            globalThis as unknown as {
+                fetch?: GeminiFetchFunction;
+            };
+
+
+        if (
+            typeof globalObject.fetch !==
+            "function"
+        ) {
+
+            throw new Error(
+                "Fetch API is not available in this runtime"
+            );
+        }
+
+
+        return globalObject.fetch.bind(
+            globalThis
+        );
     }
 
 
@@ -493,7 +565,8 @@ export class GeminiProvider {
         void {
 
         if (
-            typeof apiKey !== "string"
+            typeof apiKey !==
+            "string"
         ) {
 
             throw new Error(
@@ -535,8 +608,10 @@ export class GeminiProvider {
         boolean {
 
         return (
-            typeof this.config.apiKey === "string" &&
-            this.config.apiKey.trim().length > 0
+            typeof this.config.apiKey ===
+                "string" &&
+            this.config.apiKey.trim().length >
+                0
         );
     }
 
@@ -558,7 +633,8 @@ export class GeminiProvider {
         void {
 
         if (
-            typeof model !== "string" ||
+            typeof model !==
+                "string" ||
             !model.trim()
         ) {
 
@@ -607,8 +683,82 @@ export class GeminiProvider {
                 this.successfulRequests,
 
             failedRequests:
-                this.failedRequests
+                this.failedRequests,
+
+            averageProcessingTime:
+                this.getAverageProcessingTime()
         };
+    }
+
+
+    // ========================================================
+    // Statistics
+    // ========================================================
+
+    public getRequestCount():
+        number {
+
+        return this.requestCount;
+    }
+
+
+    public getSuccessfulRequests():
+        number {
+
+        return this.successfulRequests;
+    }
+
+
+    public getFailedRequests():
+        number {
+
+        return this.failedRequests;
+    }
+
+
+    public getAverageProcessingTime():
+        number {
+
+        if (
+            this.requestCount ===
+            0
+        ) {
+
+            return 0;
+        }
+
+
+        return (
+            this.totalProcessingTime /
+            this.requestCount
+        );
+    }
+
+
+    public getLastError():
+        string | undefined {
+
+        return this.lastError;
+    }
+
+
+    public resetStatistics():
+        void {
+
+        this.requestCount =
+            0;
+
+        this.successfulRequests =
+            0;
+
+        this.failedRequests =
+            0;
+
+        this.totalProcessingTime =
+            0;
+
+        this.lastError =
+            undefined;
     }
 
 
@@ -619,15 +769,16 @@ export class GeminiProvider {
     private buildGenerateUrl():
         string {
 
+        const model =
+            this.config.model.trim();
+
+
         return (
             `${this.config.baseUrl}` +
             `/${this.config.apiVersion}` +
             `/models/${encodeURIComponent(
-                this.config.model
-            )}:generateContent` +
-            `?key=${encodeURIComponent(
-                this.config.apiKey ?? ""
-            )}`
+                model
+            )}:generateContent`
         );
     }
 
@@ -665,6 +816,16 @@ export class GeminiProvider {
                 "Gemini base URL is not configured"
             );
         }
+
+
+        if (
+            this.config.timeout <= 0
+        ) {
+
+            throw new Error(
+                "Gemini timeout must be greater than zero"
+            );
+        }
     }
 
 
@@ -692,7 +853,8 @@ export class GeminiProvider {
 
 
             if (
-                typeof prompt !== "string" ||
+                typeof prompt !==
+                    "string" ||
                 !prompt.trim()
             ) {
 
@@ -706,15 +868,13 @@ export class GeminiProvider {
                 await this.request(
                     [
                         {
-
                             role:
                                 "user",
 
                             parts: [
                                 {
-
                                     text:
-                                        prompt
+                                        prompt.trim()
                                 }
                             ]
                         }
@@ -741,7 +901,8 @@ export class GeminiProvider {
 
 
             this.totalProcessingTime +=
-                result.processingTime ?? 0;
+                result.processingTime ??
+                0;
 
 
             this.lastError =
@@ -873,16 +1034,32 @@ export class GeminiProvider {
             const contents:
                 GeminiContent[] =
                 messages.map(
-                    message => {
+                    (
+                        message
+                    ) => {
 
                         if (
                             !message ||
-                            !message.text ||
+                            typeof message.text !==
+                                "string" ||
                             !message.text.trim()
                         ) {
 
                             throw new Error(
                                 "Gemini chat message cannot be empty"
+                            );
+                        }
+
+
+                        if (
+                            message.role !==
+                                "user" &&
+                            message.role !==
+                                "model"
+                        ) {
+
+                            throw new Error(
+                                "Gemini chat message role must be user or model"
                             );
                         }
 
@@ -894,170 +1071,5 @@ export class GeminiProvider {
 
                             parts: [
                                 {
-
                                     text:
-                                        message.text
-                                }
-                            ]
-                        };
-                    }
-                );
-
-
-            const response =
-                await this.request(
-                    contents,
-                    options
-                );
-
-
-            const result =
-                this.parseResponse(
-                    response,
-                    startedAt
-                );
-
-
-            if (result.success) {
-
-                this.successfulRequests++;
-
-            } else {
-
-                this.failedRequests++;
-            }
-
-
-            this.totalProcessingTime +=
-                result.processingTime ?? 0;
-
-
-            this.lastError =
-                result.error;
-
-
-            return result;
-
-        } catch (error) {
-
-            this.failedRequests++;
-
-
-            const message =
-                this.normalizeError(
-                    error
-                );
-
-
-            this.lastError =
-                message;
-
-
-            const processingTime =
-                Date.now() -
-                startedAt;
-
-
-            this.totalProcessingTime +=
-                processingTime;
-
-
-            this.log(
-                "Chat failed",
-                message
-            );
-
-
-            return {
-
-                success:
-                    false,
-
-                text:
-                    "",
-
-                model:
-                    this.config.model,
-
-                error:
-                    message,
-
-                processingTime
-            };
-        }
-    }
-
-
-    // ========================================================
-    // Chat Text Helper
-    // ========================================================
-
-    public async chatText(
-        messages: IGeminiMessage[],
-        options:
-            IGeminiGenerationOptions = {}
-    ):
-        Promise<string> {
-
-        const response =
-            await this.chat(
-                messages,
-                options
-            );
-
-
-        if (!response.success) {
-
-            throw new Error(
-                response.error ??
-                "Gemini chat failed"
-            );
-        }
-
-
-        return response.text;
-    }
-
-
-    // ========================================================
-    // Raw Request
-    // ========================================================
-
-    private async request(
-        contents: GeminiContent[],
-        options:
-            IGeminiGenerationOptions
-    ):
-        Promise<GeminiApiResponse> {
-
-        const controller =
-            new AbortController();
-
-
-        const timeout =
-            setTimeout(
-                () => {
-
-                    controller.abort();
-
-                },
-                options.timeout ??
-                this.config.timeout
-            );
-
-
-        try {
-
-            const generationConfig = {
-
-                temperature:
-                    options.temperature ??
-                    this.config.temperature,
-
-                topP:
-                    options.topP ??
-                    this.config.topP,
-
-                topK:
-                    options.topK ??
-           
+                                    
