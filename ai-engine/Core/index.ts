@@ -13,5 +13,5 @@ export { AIEngineConfig } from "./AIEngineConfig";
 
 export type {
   AIRequest,
-  AIResponse
+  AIResponse,
 } from "./AIEngineTypes";
