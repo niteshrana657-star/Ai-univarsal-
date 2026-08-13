@@ -1,20 +1,22 @@
 /**
  * GeminiProvider.ts
  *
- * Google Gemini provider for Universal AI Operating Companion.
+ * Google Gemini Provider
+ * Universal AI Operating Companion
  *
  * Responsibilities:
- * - Gemini API communication
+ * - Gemini REST API communication
  * - Text generation
  * - Chat generation
  * - Health checking
  * - Configuration management
- * - Error handling
  * - Request timeout handling
+ * - Error handling
  * - Usage metadata extraction
+ * - Provider statistics
  *
- * This implementation uses the Gemini REST API directly.
- * It intentionally avoids dependency on a specific Gemini SDK version.
+ * This implementation intentionally uses the Gemini REST API
+ * directly and does not depend on a specific Gemini SDK version.
  */
 
 // ============================================================
@@ -24,6 +26,11 @@
 export type GeminiRole =
     | "user"
     | "model";
+
+
+// ============================================================
+// Configuration
+// ============================================================
 
 export interface IGeminiProviderConfig {
 
@@ -50,6 +57,11 @@ export interface IGeminiProviderConfig {
     debug?: boolean;
 }
 
+
+// ============================================================
+// Generation Options
+// ============================================================
+
 export interface IGeminiGenerationOptions {
 
     temperature?: number;
@@ -65,12 +77,22 @@ export interface IGeminiGenerationOptions {
     timeout?: number;
 }
 
+
+// ============================================================
+// Chat Message
+// ============================================================
+
 export interface IGeminiMessage {
 
     role: GeminiRole;
 
     text: string;
 }
+
+
+// ============================================================
+// Usage Metadata
+// ============================================================
 
 export interface IGeminiUsageMetadata {
 
@@ -80,6 +102,11 @@ export interface IGeminiUsageMetadata {
 
     totalTokenCount?: number;
 }
+
+
+// ============================================================
+// Generation Response
+// ============================================================
 
 export interface IGeminiResponse {
 
@@ -100,6 +127,11 @@ export interface IGeminiResponse {
     processingTime?: number;
 }
 
+
+// ============================================================
+// Health Status
+// ============================================================
+
 export interface IGeminiHealthStatus {
 
     healthy: boolean;
@@ -115,6 +147,11 @@ export interface IGeminiHealthStatus {
     timestamp: number;
 }
 
+
+// ============================================================
+// Provider Information
+// ============================================================
+
 export interface IGeminiProviderInfo {
 
     name: string;
@@ -128,10 +165,17 @@ export interface IGeminiProviderInfo {
     configured: boolean;
 
     debug: boolean;
+
+    requestCount: number;
+
+    successfulRequests: number;
+
+    failedRequests: number;
 }
 
+
 // ============================================================
-// Internal REST Types
+// Internal Gemini REST Types
 // ============================================================
 
 interface GeminiPart {
@@ -139,12 +183,14 @@ interface GeminiPart {
     text?: string;
 }
 
+
 interface GeminiContent {
 
     role?: GeminiRole;
 
     parts: GeminiPart[];
 }
+
 
 interface GeminiCandidate {
 
@@ -155,6 +201,7 @@ interface GeminiCandidate {
     index?: number;
 }
 
+
 interface GeminiApiUsage {
 
     promptTokenCount?: number;
@@ -163,6 +210,7 @@ interface GeminiApiUsage {
 
     totalTokenCount?: number;
 }
+
 
 interface GeminiApiResponse {
 
@@ -184,8 +232,9 @@ interface GeminiApiResponse {
     };
 }
 
+
 // ============================================================
-// Default Configuration
+// Defaults
 // ============================================================
 
 const DEFAULT_MODEL =
@@ -212,43 +261,54 @@ const DEFAULT_MAX_OUTPUT_TOKENS =
 const DEFAULT_TIMEOUT =
     60000;
 
+
 // ============================================================
 // GeminiProvider
 // ============================================================
 
 export class GeminiProvider {
 
-    private readonly config:
-        Required<
-            Pick<
-                IGeminiProviderConfig,
-                | "model"
-                | "apiVersion"
-                | "baseUrl"
-                | "temperature"
-                | "topP"
-                | "topK"
-                | "maxOutputTokens"
-                | "timeout"
-                | "debug"
-            >
-        >
-        & {
-            apiKey?: string;
-            systemInstruction?: string;
-        };
+    private readonly config: {
+
+        apiKey?: string;
+
+        model: string;
+
+        apiVersion: string;
+
+        baseUrl: string;
+
+        temperature: number;
+
+        topP: number;
+
+        topK: number;
+
+        maxOutputTokens: number;
+
+        timeout: number;
+
+        systemInstruction?: string;
+
+        debug: boolean;
+    };
+
 
     private lastError:
         string | undefined;
 
+
     private requestCount:
         number;
+
 
     private successfulRequests:
         number;
 
+
     private failedRequests:
         number;
+
 
     private totalProcessingTime:
         number;
@@ -313,17 +373,22 @@ export class GeminiProvider {
                 false
         };
 
+
         this.lastError =
             undefined;
+
 
         this.requestCount =
             0;
 
+
         this.successfulRequests =
             0;
 
+
         this.failedRequests =
             0;
+
 
         this.totalProcessingTime =
             0;
@@ -339,21 +404,26 @@ export class GeminiProvider {
 
         try {
 
+            const globalObject =
+                globalThis as {
+                    process?: {
+                        env?: Record<
+                            string,
+                            string | undefined
+                        >;
+                    };
+                };
+
+
             const environment =
-                (
-                    globalThis as {
-                        process?: {
-                            env?: Record<
-                                string,
-                                string | undefined
-                            >;
-                        };
-                    }
-                ).process?.env;
+                globalObject.process?.env;
+
 
             if (!environment) {
+
                 return undefined;
             }
+
 
             return (
                 environment.GEMINI_API_KEY ??
@@ -422,9 +492,42 @@ export class GeminiProvider {
     ):
         void {
 
-        this.config.apiKey =
+        if (
+            typeof apiKey !== "string"
+        ) {
+
+            throw new Error(
+                "Gemini API key must be a string"
+            );
+        }
+
+
+        const normalized =
             apiKey.trim();
 
+
+        if (!normalized) {
+
+            throw new Error(
+                "Gemini API key cannot be empty"
+            );
+        }
+
+
+        this.config.apiKey =
+            normalized;
+
+
+        this.lastError =
+            undefined;
+    }
+
+
+    public clearApiKey():
+        void {
+
+        this.config.apiKey =
+            undefined;
     }
 
 
@@ -454,12 +557,16 @@ export class GeminiProvider {
     ):
         void {
 
-        if (!model.trim()) {
+        if (
+            typeof model !== "string" ||
+            !model.trim()
+        ) {
 
             throw new Error(
                 "Gemini model cannot be empty"
             );
         }
+
 
         this.config.model =
             model.trim();
@@ -491,7 +598,16 @@ export class GeminiProvider {
                 this.hasApiKey(),
 
             debug:
-                this.config.debug
+                this.config.debug,
+
+            requestCount:
+                this.requestCount,
+
+            successfulRequests:
+                this.successfulRequests,
+
+            failedRequests:
+                this.failedRequests
         };
     }
 
@@ -517,7 +633,7 @@ export class GeminiProvider {
 
 
     // ========================================================
-    // Validation
+    // Request Validation
     // ========================================================
 
     private validateRequest():
@@ -530,10 +646,23 @@ export class GeminiProvider {
             );
         }
 
-        if (!this.config.model) {
+
+        if (
+            !this.config.model.trim()
+        ) {
 
             throw new Error(
                 "Gemini model is not configured"
+            );
+        }
+
+
+        if (
+            !this.config.baseUrl.trim()
+        ) {
+
+            throw new Error(
+                "Gemini base URL is not configured"
             );
         }
     }
@@ -545,35 +674,45 @@ export class GeminiProvider {
 
     public async generate(
         prompt: string,
-        options: IGeminiGenerationOptions = {}
+        options:
+            IGeminiGenerationOptions = {}
     ):
         Promise<IGeminiResponse> {
 
         const startedAt =
             Date.now();
 
+
         this.requestCount++;
+
 
         try {
 
             this.validateRequest();
 
-            if (!prompt.trim()) {
+
+            if (
+                typeof prompt !== "string" ||
+                !prompt.trim()
+            ) {
 
                 throw new Error(
                     "Gemini prompt cannot be empty"
                 );
             }
 
+
             const response =
                 await this.request(
                     [
                         {
+
                             role:
                                 "user",
 
                             parts: [
                                 {
+
                                     text:
                                         prompt
                                 }
@@ -583,19 +722,31 @@ export class GeminiProvider {
                     options
                 );
 
+
             const result =
                 this.parseResponse(
                     response,
                     startedAt
                 );
 
-            this.successfulRequests++;
+
+            if (result.success) {
+
+                this.successfulRequests++;
+
+            } else {
+
+                this.failedRequests++;
+            }
+
 
             this.totalProcessingTime +=
                 result.processingTime ?? 0;
 
+
             this.lastError =
-                undefined;
+                result.error;
+
 
             return result;
 
@@ -603,25 +754,31 @@ export class GeminiProvider {
 
             this.failedRequests++;
 
+
             const message =
                 this.normalizeError(
                     error
                 );
 
+
             this.lastError =
                 message;
+
 
             const processingTime =
                 Date.now() -
                 startedAt;
 
+
             this.totalProcessingTime +=
                 processingTime;
+
 
             this.log(
                 "Generation failed",
                 message
             );
+
 
             return {
 
@@ -649,7 +806,8 @@ export class GeminiProvider {
 
     public async generateText(
         prompt: string,
-        options: IGeminiGenerationOptions = {}
+        options:
+            IGeminiGenerationOptions = {}
     ):
         Promise<IGeminiResponse> {
 
@@ -666,7 +824,8 @@ export class GeminiProvider {
 
     public async complete(
         prompt: string,
-        options: IGeminiGenerationOptions = {}
+        options:
+            IGeminiGenerationOptions = {}
     ):
         Promise<IGeminiResponse> {
 
@@ -683,18 +842,22 @@ export class GeminiProvider {
 
     public async chat(
         messages: IGeminiMessage[],
-        options: IGeminiGenerationOptions = {}
+        options:
+            IGeminiGenerationOptions = {}
     ):
         Promise<IGeminiResponse> {
 
         const startedAt =
             Date.now();
 
+
         this.requestCount++;
+
 
         try {
 
             this.validateRequest();
+
 
             if (
                 !Array.isArray(messages) ||
@@ -706,22 +869,40 @@ export class GeminiProvider {
                 );
             }
 
+
             const contents:
                 GeminiContent[] =
                 messages.map(
-                    message => ({
+                    message => {
 
-                        role:
-                            message.role,
+                        if (
+                            !message ||
+                            !message.text ||
+                            !message.text.trim()
+                        ) {
 
-                        parts: [
-                            {
-                                text:
-                                    message.text
-                            }
-                        ]
-                    })
+                            throw new Error(
+                                "Gemini chat message cannot be empty"
+                            );
+                        }
+
+
+                        return {
+
+                            role:
+                                message.role,
+
+                            parts: [
+                                {
+
+                                    text:
+                                        message.text
+                                }
+                            ]
+                        };
+                    }
                 );
+
 
             const response =
                 await this.request(
@@ -729,19 +910,31 @@ export class GeminiProvider {
                     options
                 );
 
+
             const result =
                 this.parseResponse(
                     response,
                     startedAt
                 );
 
-            this.successfulRequests++;
+
+            if (result.success) {
+
+                this.successfulRequests++;
+
+            } else {
+
+                this.failedRequests++;
+            }
+
 
             this.totalProcessingTime +=
                 result.processingTime ?? 0;
 
+
             this.lastError =
-                undefined;
+                result.error;
+
 
             return result;
 
@@ -749,25 +942,31 @@ export class GeminiProvider {
 
             this.failedRequests++;
 
+
             const message =
                 this.normalizeError(
                     error
                 );
 
+
             this.lastError =
                 message;
+
 
             const processingTime =
                 Date.now() -
                 startedAt;
 
+
             this.totalProcessingTime +=
                 processingTime;
+
 
             this.log(
                 "Chat failed",
                 message
             );
+
 
             return {
 
@@ -795,7 +994,8 @@ export class GeminiProvider {
 
     public async chatText(
         messages: IGeminiMessage[],
-        options: IGeminiGenerationOptions = {}
+        options:
+            IGeminiGenerationOptions = {}
     ):
         Promise<string> {
 
@@ -805,6 +1005,7 @@ export class GeminiProvider {
                 options
             );
 
+
         if (!response.success) {
 
             throw new Error(
@@ -813,31 +1014,37 @@ export class GeminiProvider {
             );
         }
 
+
         return response.text;
     }
 
 
     // ========================================================
-    // Request
+    // Raw Request
     // ========================================================
 
     private async request(
         contents: GeminiContent[],
-        options: IGeminiGenerationOptions
+        options:
+            IGeminiGenerationOptions
     ):
         Promise<GeminiApiResponse> {
 
         const controller =
             new AbortController();
 
+
         const timeout =
             setTimeout(
                 () => {
+
                     controller.abort();
+
                 },
                 options.timeout ??
                 this.config.timeout
             );
+
 
         try {
 
@@ -853,127 +1060,4 @@ export class GeminiProvider {
 
                 topK:
                     options.topK ??
-                    this.config.topK,
-
-                maxOutputTokens:
-                    options.maxOutputTokens ??
-                    this.config.maxOutputTokens
-            };
-
-            const body:
-                Record<string, unknown> = {
-
-                contents,
-
-                generationConfig
-            };
-
-            const systemInstruction =
-                options.systemInstruction ??
-                this.config.systemInstruction;
-
-            if (systemInstruction) {
-
-                body.systemInstruction = {
-
-                    parts: [
-                        {
-                            text:
-                                systemInstruction
-                        }
-                    ]
-                };
-            }
-
-            this.log(
-                "Sending Gemini request",
-                {
-                    model:
-                        this.config.model
-                }
-            );
-
-            const fetchFunction =
-                this.getFetchFunction();
-
-            const response =
-                await fetchFunction(
-                    this.buildGenerateUrl(),
-                    {
-                        method:
-                            "POST",
-
-                        headers: {
-
-                            "Content-Type":
-                                "application/json"
-                        },
-
-                        body:
-                            JSON.stringify(
-                                body
-                            ),
-
-                        signal:
-                            controller.signal
-                    }
-                );
-
-            const rawText =
-                await response.text();
-
-            let data:
-                GeminiApiResponse;
-
-            try {
-
-                data =
-                    rawText
-                        ? JSON.parse(
-                            rawText
-                        ) as GeminiApiResponse
-                        : {};
-
-            } catch {
-
-                throw new Error(
-                    `Gemini returned invalid JSON (HTTP ${response.status})`
-                );
-            }
-
-            if (!response.ok) {
-
-                throw new Error(
-                    this.extractApiError(
-                        data,
-                        response.status
-                    )
-                );
-            }
-
-            if (data.error) {
-
-                throw new Error(
-                    data.error.message ??
-                    "Gemini API returned an error"
-                );
-            }
-
-            return data;
-
-        } finally {
-
-            clearTimeout(
-                timeout
-            );
-        }
-    }
-
-
-    // ========================================================
-    // Fetch
-    // ========================================================
-
-    private getFetchFunction():
-        (
-            input:
+           
