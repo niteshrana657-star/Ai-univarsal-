@@ -6,11 +6,11 @@
  */
 
 // ============================================================
-// Core Provider Types
+// Core Provider Layer
 // ============================================================
 
 export * from "./AIProvider";
-export * from "./AIProviderFactory";
+export * from "./ProviderFactory";
 export * from "./ProviderRegistry";
 export * from "./ProviderManager";
 
@@ -18,16 +18,9 @@ export * from "./ProviderManager";
 // Provider Implementations
 // ============================================================
 
-// OpenAI
 export * from "./OpenAI";
-
-// Gemini
 export * from "./Gemini";
-
-// Ollama
 export * from "./Ollama";
-
-// Local
 export * from "./Local";
 
 // ============================================================
@@ -48,7 +41,7 @@ export const SUPPORTED_AI_PROVIDERS = [
 ] as const;
 
 // ============================================================
-// Provider Name Type
+// Provider Type
 // ============================================================
 
 export type AIProviderName =
@@ -72,15 +65,10 @@ export function isSupportedProvider(
 
 export interface IAIProviderInfo {
     id: AIProviderName;
-
     displayName: string;
-
     supportsOnline: boolean;
-
     supportsOffline: boolean;
-
     supportsVision: boolean;
-
     supportsStreaming: boolean;
 }
 
