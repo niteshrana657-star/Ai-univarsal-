@@ -7,233 +7,309 @@
  */
 
 import {
-  AIProvider,
-  ProviderStatus
+    AIProvider,
+    ProviderStatus
 } from "./AIProvider";
+
 
 export class ProviderManager {
 
-  private readonly providers =
-    new Map<string, AIProvider>();
+    private readonly providers =
+        new Map<string, AIProvider>();
 
-  private activeProviderId:
-    string | null = null;
+    private activeProviderId:
+        string | null = null;
 
-  /**
-   * Register Provider
-   */
-  public register(
-    provider: AIProvider
-  ): void {
 
-    this.providers.set(
-      provider.id,
-      provider
-    );
+    /**
+     * Register Provider
+     */
+    public register(
+        provider: AIProvider
+    ): void {
 
-    if (
-      this.activeProviderId === null
-    ) {
-      this.activeProviderId =
-        provider.id;
+        if (!provider || !provider.id) {
+            throw new Error(
+                "Invalid AI provider."
+            );
+        }
+
+        this.providers.set(
+            provider.id,
+            provider
+        );
+
+        if (
+            this.activeProviderId === null
+        ) {
+
+            this.activeProviderId =
+                provider.id;
+
+        }
+
     }
 
-  }
 
-  /**
-   * Register Multiple Providers
-   */
-  public registerMany(
-    providers: AIProvider[]
-  ): void {
+    /**
+     * Register Multiple Providers
+     */
+    public registerMany(
+        providers: AIProvider[]
+    ): void {
 
-    providers.forEach(
-      provider =>
-        this.register(provider)
-    );
+        providers.forEach(
+            provider =>
+                this.register(provider)
+        );
 
-  }
-
-  /**
-   * Get Provider
-   */
-  public get(
-    id: string
-  ): AIProvider | undefined {
-
-    return this.providers.get(id);
-
-  }
-
-  /**
-   * Get Active Provider
-   */
-  public getActive():
-    AIProvider | null {
-
-    if (!this.activeProviderId) {
-      return null;
     }
 
-    return (
-      this.providers.get(
-        this.activeProviderId
-      ) ?? null
-    );
 
-  }
+    /**
+     * Get Provider
+     */
+    public get(
+        id: string
+    ): AIProvider | undefined {
 
-  /**
-   * Set Active Provider
-   */
-  public setActive(
-    id: string
-  ): boolean {
+        return this.providers.get(id);
 
-    if (
-      !this.providers.has(id)
-    ) {
-      return false;
     }
 
-    this.activeProviderId = id;
 
-    return true;
+    /**
+     * Get Active Provider
+     */
+    public getActive():
+        AIProvider | null {
 
-  }
+        if (!this.activeProviderId) {
+            return null;
+        }
 
-  /**
-   * Get All Providers
-   */
-  public getAll():
-    AIProvider[] {
+        return (
+            this.providers.get(
+                this.activeProviderId
+            ) ?? null
+        );
 
-    return Array.from(
-      this.providers.values()
-    );
-
-  }
-
-  /**
-   * Get Connected Providers
-   */
-  public getConnected():
-    AIProvider[] {
-
-    return this.getAll().filter(
-      provider =>
-        provider.isConnected()
-    );
-
-  }
-
-  /**
-   * Connect Provider
-   */
-  public async connect(
-    id: string
-  ): Promise<boolean> {
-
-    const provider =
-      this.get(id);
-
-    if (!provider) {
-      return false;
     }
 
-    return provider.connect();
 
-  }
+    /**
+     * Set Active Provider
+     */
+    public setActive(
+        id: string
+    ): boolean {
 
-  /**
-   * Disconnect Provider
-   */
-  public async disconnect(
-    id: string
-  ): Promise<boolean> {
+        if (
+            !this.providers.has(id)
+        ) {
 
-    const provider =
-      this.get(id);
+            return false;
 
-    if (!provider) {
-      return false;
+        }
+
+        this.activeProviderId =
+            id;
+
+        return true;
+
     }
 
-    await provider.disconnect();
 
-    return true;
+    /**
+     * Get Active Provider ID
+     */
+    public getActiveId():
+        string | null {
 
-  }
+        return this.activeProviderId;
 
-  /**
-   * Get Provider Status
-   */
-  public getStatus(
-    id: string
-  ): ProviderStatus | null {
-
-    const provider =
-      this.get(id);
-
-    if (!provider) {
-      return null;
     }
 
-    return provider.getStatus();
 
-  }
+    /**
+     * Get All Providers
+     */
+    public getAll():
+        AIProvider[] {
 
-  /**
-   * Remove Provider
-   */
-  public remove(
-    id: string
-  ): boolean {
+        return Array.from(
+            this.providers.values()
+        );
 
-    if (
-      this.activeProviderId === id
-    ) {
-      this.activeProviderId = null;
     }
 
-    return this.providers.delete(id);
 
-  }
+    /**
+     * Get Connected Providers
+     */
+    public getConnected():
+        AIProvider[] {
 
-  /**
-   * Clear Providers
-   */
-  public clear(): void {
+        return this.getAll().filter(
+            provider =>
+                provider.isConnected()
+        );
 
-    this.providers.clear();
+    }
 
-    this.activeProviderId = null;
 
-  }
+    /**
+     * Connect Provider
+     */
+    public async connect(
+        id: string
+    ): Promise<boolean> {
 
-  /**
-   * Total Providers
-   */
-  public count(): number {
+        const provider =
+            this.get(id);
 
-    return this.providers.size;
+        if (!provider) {
+            return false;
+        }
 
-  }
+        try {
 
-  /**
-   * Has Provider
-   */
-  public has(
-    id: string
-  ): boolean {
+            return await provider.connect();
 
-    return this.providers.has(id);
+        } catch {
 
-  }
+            return false;
+
+        }
+
+    }
+
+
+    /**
+     * Disconnect Provider
+     */
+    public async disconnect(
+        id: string
+    ): Promise<boolean> {
+
+        const provider =
+            this.get(id);
+
+        if (!provider) {
+            return false;
+        }
+
+        try {
+
+            await provider.disconnect();
+
+            return true;
+
+        } catch {
+
+            return false;
+
+        }
+
+    }
+
+
+    /**
+     * Get Provider Status
+     */
+    public getStatus(
+        id: string
+    ):
+        ProviderStatus | null {
+
+        const provider =
+            this.get(id);
+
+        if (!provider) {
+            return null;
+        }
+
+        return provider.getStatus();
+
+    }
+
+
+    /**
+     * Check Provider Exists
+     */
+    public has(
+        id: string
+    ): boolean {
+
+        return this.providers.has(id);
+
+    }
+
+
+    /**
+     * Remove Provider
+     */
+    public remove(
+        id: string
+    ): boolean {
+
+        const removed =
+            this.providers.delete(id);
+
+        if (
+            this.activeProviderId === id
+        ) {
+
+            this.activeProviderId =
+                null;
+
+            const firstProvider =
+                this.providers.values()
+                    .next()
+                    .value as
+                    AIProvider | undefined;
+
+            if (firstProvider) {
+
+                this.activeProviderId =
+                    firstProvider.id;
+
+            }
+
+        }
+
+        return removed;
+
+    }
+
+
+    /**
+     * Clear Providers
+     */
+    public clear(): void {
+
+        this.providers.clear();
+
+        this.activeProviderId =
+            null;
+
+    }
+
+
+    /**
+     * Total Providers
+     */
+    public count(): number {
+
+        return this.providers.size;
+
+    }
 
 }
 
+
 const providerManager =
-  new ProviderManager();
+    new ProviderManager();
+
 
 export default providerManager;
