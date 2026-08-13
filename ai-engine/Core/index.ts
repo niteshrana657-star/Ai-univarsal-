@@ -12,6 +12,6 @@ export { AIEngineState } from "./AIEngineState";
 export { AIEngineConfig } from "./AIEngineConfig";
 
 export type {
-  AIRequest,
-  AIResponse,
+    AIRequest,
+    AIResponse,
 } from "./AIEngineTypes";
