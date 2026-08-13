@@ -2,64 +2,63 @@
  * providers/index.ts
  *
  * AI Provider Layer Exports
+ * Universal AI Operating Companion
  */
 
-// ==============================
-// Core
-// ==============================
+// =============================================================
+// Core Provider Contracts
+// =============================================================
 
 export * from "./AIProvider";
-export * from "./AIProviderFactory";
+export * from "./ProviderFactory";
 export * from "./ProviderRegistry";
 export * from "./ProviderManager";
 
-// ==============================
-// Providers
-// ==============================
 
-export * from "./openai";
-export * from "./gemini";
-export * from "./ollama";
-export * from "./local";
-// ==============================
+// =============================================================
+// Provider Implementations
+// =============================================================
+
+// OpenAI
+export * from "./OpenAI/OpenAIProvider";
+
+// Ollama
+export * from "./Ollama/OllamaProvider";
+
+// Gemini
+export * from "./GeminiProvider";
+
+
+// =============================================================
 // Default Provider
-// ==============================
+// =============================================================
 
-export const DEFAULT_AI_PROVIDER =
-    "gemini";
-
+export const DEFAULT_AI_PROVIDER = "gemini";
 
 
-// ==============================
+// =============================================================
 // Supported Providers
-// ==============================
+// =============================================================
 
 export const SUPPORTED_AI_PROVIDERS = [
-
     "gemini",
-
     "openai",
-
     "ollama",
-
     "local"
-
 ] as const;
 
 
-
-// ==============================
+// =============================================================
 // Provider Type
-// ==============================
+// =============================================================
 
 export type AIProviderName =
     typeof SUPPORTED_AI_PROVIDERS[number];
 
 
-
-// ==============================
+// =============================================================
 // Helper
-// ==============================
+// =============================================================
 
 export function isSupportedProvider(
     provider: string
@@ -70,9 +69,11 @@ export function isSupportedProvider(
     );
 
 }
-// ==============================
+
+
+// =============================================================
 // Provider Information
-// ==============================
+// =============================================================
 
 export interface IAIProviderInfo {
 
@@ -91,16 +92,15 @@ export interface IAIProviderInfo {
 }
 
 
-
-// ==============================
+// =============================================================
 // Provider List
-// ==============================
+// =============================================================
 
 export const AI_PROVIDER_INFO:
-Record<
-    AIProviderName,
-    IAIProviderInfo
-> = {
+    Record<
+        AIProviderName,
+        IAIProviderInfo
+    > = {
 
     gemini: {
 
@@ -169,10 +169,9 @@ Record<
 };
 
 
-
-// ==============================
-// Helpers
-// ==============================
+// =============================================================
+// Provider Helpers
+// =============================================================
 
 export function getProviderInfo(
     provider: AIProviderName
@@ -183,24 +182,20 @@ export function getProviderInfo(
 }
 
 
-
 export function getDefaultProvider():
-AIProviderName {
+    AIProviderName {
 
     return DEFAULT_AI_PROVIDER;
 
 }
-// ==============================
-// Provider Utilities
-// ==============================
+
 
 export function getSupportedProviders():
-readonly AIProviderName[] {
+    readonly AIProviderName[] {
 
     return SUPPORTED_AI_PROVIDERS;
 
 }
-
 
 
 export function hasVisionSupport(
@@ -214,7 +209,6 @@ export function hasVisionSupport(
 }
 
 
-
 export function hasStreamingSupport(
     provider: AIProviderName
 ): boolean {
@@ -224,7 +218,6 @@ export function hasStreamingSupport(
     ].supportsStreaming;
 
 }
-
 
 
 export function hasOfflineSupport(
@@ -238,19 +231,16 @@ export function hasOfflineSupport(
 }
 
 
-
-// ==============================
+// =============================================================
 // Version
-// ==============================
+// =============================================================
 
-export const PROVIDERS_VERSION =
-    "1.0.0";
-
+export const PROVIDERS_VERSION = "1.0.0";
 
 
-// ==============================
+// =============================================================
 // Default Export
-// ==============================
+// =============================================================
 
 export default {
 
