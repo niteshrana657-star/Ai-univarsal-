@@ -12,8 +12,7 @@
 
 import { AIEngineState } from "./AIEngineState";
 import { AIEngineConfig } from "./AIEngineConfig";
-
-import {
+import type {
     AIRequest,
     AIResponse
 } from "./AIEngineTypes";
@@ -23,18 +22,29 @@ import { AIEngineService } from "../services/AIEngineService";
 
 import { ProviderManager } from "../providers/ProviderManager";
 
-import { SystemPrompt } from "../prompts/SystemPrompt";
-import { UserPrompt } from "../prompts/UserPrompt";
-import { ContextPrompt } from "../prompts/ContextPrompt";
+import {
+    SYSTEM_PROMPT
+} from "../prompts/SystemPrompt";
+
+import {
+    createUserPrompt
+} from "../prompts/UserPrompt";
+
+import {
+    createContextPrompt
+} from "../prompts/ContextPrompt";
 
 
 export class AIEngine {
 
     private readonly config: AIEngineConfig;
+
     private readonly state: AIEngineState;
 
     private readonly providerManager: ProviderManager;
+
     private readonly events: AIEngineEvents;
+
     private readonly service: AIEngineService;
 
 
@@ -46,10 +56,13 @@ export class AIEngine {
     ) {
 
         this.config = config;
+
         this.state = new AIEngineState();
 
         this.providerManager = providerManager;
+
         this.events = events;
+
         this.service = service;
 
         this.initialize();
@@ -81,11 +94,16 @@ export class AIEngine {
 
         const startTime = Date.now();
 
+        let success = false;
+
         try {
 
             this.state.setProcessing(true);
+
             this.state.setError(null);
+
             this.state.setLastRequest(request);
+
 
             this.events.emit(
                 "AI_REQUEST_STARTED",
@@ -119,7 +137,14 @@ export class AIEngine {
 
                 success: true,
 
-                message: result,
+                message:
+                    typeof result === "string"
+                        ? result
+                        : (
+                            result?.text ??
+                            result?.content ??
+                            ""
+                        ),
 
                 provider:
                     provider.name,
@@ -128,6 +153,9 @@ export class AIEngine {
                     Date.now()
 
             };
+
+
+            success = true;
 
 
             this.state.setLastResponse(
@@ -158,21 +186,15 @@ export class AIEngine {
 
                 message: "",
 
-                error:
-                    errorMessage,
+                error: errorMessage,
 
-                timestamp:
-                    Date.now()
+                timestamp: Date.now()
 
             };
 
 
             this.state.setError(
                 errorMessage
-            );
-
-            this.state.setLastResponse(
-                response
             );
 
 
@@ -187,18 +209,15 @@ export class AIEngine {
 
         } finally {
 
-            const hasError =
-                this.state.hasError();
-
             this.state.setProcessing(false);
+
 
             this.service.recordExecution({
 
                 duration:
                     Date.now() - startTime,
 
-                success:
-                    !hasError
+                success
 
             });
 
@@ -216,27 +235,36 @@ export class AIEngine {
 
         const system =
             request.systemInstruction ??
-            SystemPrompt.get();
-
-
-        const user =
-            UserPrompt.create(
-                request.message
-            );
+            SYSTEM_PROMPT;
 
 
         const context =
-            ContextPrompt.create(
+            createContextPrompt(
                 request.context ?? {}
             );
 
 
+        const user =
+            createUserPrompt(
+                request.message
+            );
+
+
         return [
+
             system,
+
             context,
+
             user
+
         ]
-        .filter(Boolean)
+        .filter(
+            (
+                value
+            ): value is string =>
+                Boolean(value)
+        )
         .join("\n\n");
 
     }
@@ -248,6 +276,16 @@ export class AIEngine {
     getState(): AIEngineState {
 
         return this.state;
+
+    }
+
+
+    /**
+     * Get engine configuration
+     */
+    getConfig(): AIEngineConfig {
+
+        return this.config;
 
     }
 
@@ -268,4 +306,4 @@ export class AIEngine {
 
     }
 
-}
+            }
