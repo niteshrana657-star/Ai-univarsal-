@@ -11,11 +11,13 @@
  * - Resolve dependencies
  * - Provide registry health information
  * - Support lifecycle cleanup
+ * - Event notifications
+ * - Registry import/export
  */
 
-// ==============================
+// ============================================================
 // Core Types
-// ==============================
+// ============================================================
 
 export type AIRegistryModuleState =
     | "REGISTERED"
@@ -44,9 +46,9 @@ export type AIRegistryModuleCategory =
     | "SYSTEM"
     | "OTHER";
 
-// ==============================
+// ============================================================
 // Module Definition
-// ==============================
+// ============================================================
 
 export interface IAIRegistryModule {
 
@@ -56,9 +58,11 @@ export interface IAIRegistryModule {
 
     version: string;
 
-    category: AIRegistryModuleCategory | string;
+    category:
+        AIRegistryModuleCategory | string;
 
-    state: AIRegistryModuleState;
+    state:
+        AIRegistryModuleState;
 
     capabilities: string[];
 
@@ -75,9 +79,9 @@ export interface IAIRegistryModule {
     updatedAt?: number;
 }
 
-// ==============================
+// ============================================================
 // Registry Entry
-// ==============================
+// ============================================================
 
 export interface IAIRegistryEntry
     extends IAIRegistryModule {
@@ -87,9 +91,9 @@ export interface IAIRegistryEntry
     updatedAt: number;
 }
 
-// ==============================
+// ============================================================
 // Registry Statistics
-// ==============================
+// ============================================================
 
 export interface IAIRegistryStats {
 
@@ -114,9 +118,9 @@ export interface IAIRegistryStats {
     unhealthy: number;
 }
 
-// ==============================
+// ============================================================
 // Registry Health
-// ==============================
+// ============================================================
 
 export interface IAIRegistryHealth {
 
@@ -133,9 +137,9 @@ export interface IAIRegistryHealth {
     timestamp: number;
 }
 
-// ==============================
+// ============================================================
 // Registry Event
-// ==============================
+// ============================================================
 
 export interface IAIRegistryEvent {
 
@@ -148,18 +152,18 @@ export interface IAIRegistryEvent {
     payload?: unknown;
 }
 
-// ==============================
+// ============================================================
 // Event Listener
-// ==============================
+// ============================================================
 
 export type AIRegistryEventListener =
     (
         event: IAIRegistryEvent
     ) => void;
 
-// ==============================
+// ============================================================
 // AIEngineRegistry
-// ==============================
+// ============================================================
 
 export class AIEngineRegistry {
 
@@ -167,13 +171,21 @@ export class AIEngineRegistry {
         Map<string, IAIRegistryEntry>;
 
     private readonly listeners:
-        Map<string, Set<AIRegistryEventListener>>;
+        Map<
+            string,
+            Set<AIRegistryEventListener>
+        >;
 
     private readonly errors:
         string[];
 
-    private createdAt: number;
+    private readonly createdAt:
+        number;
 
+
+    // ========================================================
+    // Constructor
+    // ========================================================
 
     constructor() {
 
@@ -196,9 +208,9 @@ export class AIEngineRegistry {
     }
 
 
-    // ==============================
+    // ========================================================
     // Registration
-    // ==============================
+    // ========================================================
 
     public registerModule(
         module: IAIRegistryModule
@@ -221,15 +233,43 @@ export class AIEngineRegistry {
             const entry:
                 IAIRegistryEntry = {
 
-                ...module,
+                moduleId:
+                    module.moduleId,
 
-                capabilities: [
-                    ...module.capabilities
-                ],
+                moduleName:
+                    module.moduleName,
 
-                dependencies: [
-                    ...module.dependencies
-                ],
+                version:
+                    module.version,
+
+                category:
+                    module.category,
+
+                state:
+                    module.state,
+
+                capabilities:
+                    [
+                        ...module.capabilities
+                    ],
+
+                dependencies:
+                    [
+                        ...module.dependencies
+                    ],
+
+                health:
+                    module.health,
+
+                description:
+                    module.description,
+
+                metadata:
+                    module.metadata
+                        ? {
+                            ...module.metadata
+                        }
+                        : undefined,
 
                 registeredAt:
                     existing?.registeredAt ??
@@ -246,6 +286,7 @@ export class AIEngineRegistry {
             );
 
             this.emit({
+
                 type:
                     existing
                         ? "MODULE.UPDATED"
@@ -258,7 +299,9 @@ export class AIEngineRegistry {
                     now,
 
                 payload:
-                    entry
+                    this.cloneEntry(
+                        entry
+                    )
             });
 
             return true;
@@ -276,17 +319,29 @@ export class AIEngineRegistry {
     }
 
 
-    // ==============================
+    // ========================================================
     // Unregister
-    // ==============================
+    // ========================================================
 
     public unregisterModule(
         moduleId: string
     ): boolean {
 
+        const normalizedId =
+            moduleId.trim();
+
+        if (!normalizedId) {
+
+            this.addError(
+                "Module ID cannot be empty"
+            );
+
+            return false;
+        }
+
         const removed =
             this.modules.delete(
-                moduleId
+                normalizedId
             );
 
         if (removed) {
@@ -296,7 +351,8 @@ export class AIEngineRegistry {
                 type:
                     "MODULE.UNREGISTERED",
 
-                moduleId,
+                moduleId:
+                    normalizedId,
 
                 timestamp:
                     Date.now()
@@ -307,24 +363,33 @@ export class AIEngineRegistry {
     }
 
 
-    // ==============================
+    // ========================================================
     // Get Module
-    // ==============================
+    // ========================================================
 
     public getModule(
         moduleId: string
     ):
         IAIRegistryEntry | undefined {
 
-        return this.modules.get(
-            moduleId
+        const module =
+            this.modules.get(
+                moduleId
+            );
+
+        if (!module) {
+            return undefined;
+        }
+
+        return this.cloneEntry(
+            module
         );
     }
 
 
-    // ==============================
+    // ========================================================
     // Has Module
-    // ==============================
+    // ========================================================
 
     public hasModule(
         moduleId: string
@@ -336,9 +401,9 @@ export class AIEngineRegistry {
     }
 
 
-    // ==============================
+    // ========================================================
     // Get All Modules
-    // ==============================
+    // ========================================================
 
     public getModules():
         IAIRegistryEntry[] {
@@ -346,24 +411,17 @@ export class AIEngineRegistry {
         return Array.from(
             this.modules.values()
         ).map(
-            module => ({
-                ...module,
-
-                capabilities: [
-                    ...module.capabilities
-                ],
-
-                dependencies: [
-                    ...module.dependencies
-                ]
-            })
+            module =>
+                this.cloneEntry(
+                    module
+                )
         );
     }
 
 
-    // ==============================
+    // ========================================================
     // Get Module IDs
-    // ==============================
+    // ========================================================
 
     public getModuleIds():
         string[] {
@@ -374,9 +432,9 @@ export class AIEngineRegistry {
     }
 
 
-    // ==============================
+    // ========================================================
     // Module Count
-    // ==============================
+    // ========================================================
 
     public getModuleCount():
         number {
@@ -385,13 +443,129 @@ export class AIEngineRegistry {
     }
 
 
-    // ==============================
+    // ========================================================
+    // Update Module
+    // ========================================================
+
+    public updateModule(
+        moduleId: string,
+        updates:
+            Partial<
+                Omit<
+                    IAIRegistryModule,
+                    "moduleId"
+                >
+            >
+    ): boolean {
+
+        const existing =
+            this.modules.get(
+                moduleId
+            );
+
+        if (!existing) {
+
+            this.addError(
+                `Module not found: ${moduleId}`
+            );
+
+            return false;
+        }
+
+        try {
+
+            const updated:
+                IAIRegistryModule = {
+
+                ...existing,
+
+                ...updates,
+
+                moduleId:
+                    existing.moduleId,
+
+                capabilities:
+                    updates.capabilities
+                        ? [
+                            ...updates.capabilities
+                        ]
+                        : [
+                            ...existing.capabilities
+                        ],
+
+                dependencies:
+                    updates.dependencies
+                        ? [
+                            ...updates.dependencies
+                        ]
+                        : [
+                            ...existing.dependencies
+                        ]
+            };
+
+            this.validateModuleDefinition(
+                updated
+            );
+
+            const now =
+                Date.now();
+
+            const entry:
+                IAIRegistryEntry = {
+
+                ...updated,
+
+                registeredAt:
+                    existing.registeredAt,
+
+                updatedAt:
+                    now
+            };
+
+            this.modules.set(
+                moduleId,
+                entry
+            );
+
+            this.emit({
+
+                type:
+                    "MODULE.UPDATED",
+
+                moduleId,
+
+                timestamp:
+                    now,
+
+                payload:
+                    this.cloneEntry(
+                        entry
+                    )
+            });
+
+            return true;
+
+        } catch (error) {
+
+            this.addError(
+                error instanceof Error
+                    ? error.message
+                    : "Module update failed"
+            );
+
+            return false;
+        }
+    }
+
+
+    // ========================================================
     // Update Module State
-    // ==============================
+    // ========================================================
 
     public setModuleState(
         moduleId: string,
-        state: AIRegistryModuleState
+        state:
+            AIRegistryModuleState
     ): boolean {
 
         const module =
@@ -422,7 +596,7 @@ export class AIEngineRegistry {
             moduleId,
 
             timestamp:
-                Date.now(),
+                module.updatedAt,
 
             payload:
                 state
@@ -432,9 +606,9 @@ export class AIEngineRegistry {
     }
 
 
-    // ==============================
+    // ========================================================
     // Update Health
-    // ==============================
+    // ========================================================
 
     public setModuleHealth(
         moduleId: string,
@@ -469,7 +643,7 @@ export class AIEngineRegistry {
             moduleId,
 
             timestamp:
-                Date.now(),
+                module.updatedAt,
 
             payload:
                 health
@@ -479,9 +653,9 @@ export class AIEngineRegistry {
     }
 
 
-    // ==============================
+    // ========================================================
     // Update Capabilities
-    // ==============================
+    // ========================================================
 
     public setModuleCapabilities(
         moduleId: string,
@@ -497,6 +671,17 @@ export class AIEngineRegistry {
 
             this.addError(
                 `Module not found: ${moduleId}`
+            );
+
+            return false;
+        }
+
+        if (!Array.isArray(
+            capabilities
+        )) {
+
+            this.addError(
+                `Capabilities must be an array: ${moduleId}`
             );
 
             return false;
@@ -518,19 +703,83 @@ export class AIEngineRegistry {
             moduleId,
 
             timestamp:
-                Date.now(),
+                module.updatedAt,
 
             payload:
-                capabilities
+                [
+                    ...module.capabilities
+                ]
         });
 
         return true;
     }
 
 
-    // ==============================
+    // ========================================================
+    // Update Dependencies
+    // ========================================================
+
+    public setModuleDependencies(
+        moduleId: string,
+        dependencies: string[]
+    ): boolean {
+
+        const module =
+            this.modules.get(
+                moduleId
+            );
+
+        if (!module) {
+
+            this.addError(
+                `Module not found: ${moduleId}`
+            );
+
+            return false;
+        }
+
+        if (!Array.isArray(
+            dependencies
+        )) {
+
+            this.addError(
+                `Dependencies must be an array: ${moduleId}`
+            );
+
+            return false;
+        }
+
+        module.dependencies =
+            [
+                ...dependencies
+            ];
+
+        module.updatedAt =
+            Date.now();
+
+        this.emit({
+
+            type:
+                "MODULE.DEPENDENCIES_CHANGED",
+
+            moduleId,
+
+            timestamp:
+                module.updatedAt,
+
+            payload:
+                [
+                    ...module.dependencies
+                ]
+        });
+
+        return true;
+    }
+
+
+    // ========================================================
     // Find By Category
-    // ==============================
+    // ========================================================
 
     public getModulesByCategory(
         category: string
@@ -544,12 +793,13 @@ export class AIEngineRegistry {
     }
 
 
-    // ==============================
+    // ========================================================
     // Find By State
-    // ==============================
+    // ========================================================
 
     public getModulesByState(
-        state: AIRegistryModuleState
+        state:
+            AIRegistryModuleState
     ):
         IAIRegistryEntry[] {
 
@@ -560,9 +810,9 @@ export class AIEngineRegistry {
     }
 
 
-    // ==============================
+    // ========================================================
     // Find By Capability
-    // ==============================
+    // ========================================================
 
     public findByCapability(
         capability: string
@@ -578,9 +828,9 @@ export class AIEngineRegistry {
     }
 
 
-    // ==============================
-    // Find By Dependency
-    // ==============================
+    // ========================================================
+    // Find Dependents
+    // ========================================================
 
     public findDependents(
         moduleId: string
@@ -596,9 +846,9 @@ export class AIEngineRegistry {
     }
 
 
-    // ==============================
-    // Dependency Check
-    // ==============================
+    // ========================================================
+    // Dependency Availability
+    // ========================================================
 
     public areDependenciesAvailable(
         moduleId: string
@@ -622,9 +872,9 @@ export class AIEngineRegistry {
     }
 
 
-    // ==============================
+    // ========================================================
     // Missing Dependencies
-    // ==============================
+    // ========================================================
 
     public getMissingDependencies(
         moduleId: string
@@ -649,15 +899,17 @@ export class AIEngineRegistry {
     }
 
 
-    // ==============================
+    // ========================================================
     // Statistics
-    // ==============================
+    // ========================================================
 
     public getStats():
         IAIRegistryStats {
 
         const modules =
-            this.getModules();
+            Array.from(
+                this.modules.values()
+            );
 
         return {
 
@@ -709,32 +961,34 @@ export class AIEngineRegistry {
             healthy:
                 modules.filter(
                     module =>
-                        module.health
+                        module.health === true
                 ).length,
 
             unhealthy:
                 modules.filter(
                     module =>
-                        !module.health
+                        module.health === false
                 ).length
         };
     }
 
 
-    // ==============================
+    // ========================================================
     // Health Check
-    // ==============================
+    // ========================================================
 
     public healthCheck():
         IAIRegistryHealth {
 
         const modules =
-            this.getModules();
+            Array.from(
+                this.modules.values()
+            );
 
         const unhealthy =
             modules.filter(
                 module =>
-                    !module.health ||
+                    module.health !== true ||
                     module.state === "ERROR"
             );
 
@@ -748,17 +1002,23 @@ export class AIEngineRegistry {
             of unhealthy
         ) {
 
-            errors.push(
-                `Module unhealthy: ${module.moduleId}`
-            );
+            const message =
+                `Module unhealthy: ${module.moduleId}`;
+
+            if (!errors.includes(
+                message
+            )) {
+
+                errors.push(
+                    message
+                );
+            }
         }
 
         return {
 
             healthy:
-                modules.length === 0
-                    ? true
-                    : unhealthy.length === 0,
+                unhealthy.length === 0,
 
             totalModules:
                 modules.length,
@@ -778,13 +1038,15 @@ export class AIEngineRegistry {
     }
 
 
-    // ==============================
+    // ========================================================
     // Validation
-    // ==============================
+    // ========================================================
 
     public validateModule(
-        module: IAIRegistryModule
-    ): boolean {
+        module:
+            IAIRegistryModule
+    ):
+        boolean {
 
         try {
 
@@ -802,8 +1064,10 @@ export class AIEngineRegistry {
 
 
     private validateModuleDefinition(
-        module: IAIRegistryModule
-    ): void {
+        module:
+            IAIRegistryModule
+    ):
+        void {
 
         if (!module) {
 
@@ -812,64 +1076,133 @@ export class AIEngineRegistry {
             );
         }
 
-        if (!module.moduleId) {
+        if (
+            typeof module.moduleId !==
+            "string" ||
+            !module.moduleId.trim()
+        ) {
 
             throw new Error(
                 "Module ID is missing"
             );
         }
 
-        if (!module.moduleName) {
+        if (
+            typeof module.moduleName !==
+            "string" ||
+            !module.moduleName.trim()
+        ) {
 
             throw new Error(
                 `Module name is missing: ${module.moduleId}`
             );
         }
 
-        if (!module.version) {
+        if (
+            typeof module.version !==
+            "string" ||
+            !module.version.trim()
+        ) {
 
             throw new Error(
                 `Module version is missing: ${module.moduleId}`
             );
         }
 
-        if (!module.category) {
+        if (
+            typeof module.category !==
+            "string" ||
+            !module.category.trim()
+        ) {
 
             throw new Error(
                 `Module category is missing: ${module.moduleId}`
             );
         }
 
-        if (!Array.isArray(
-            module.capabilities
-        )) {
+        if (
+            !Array.isArray(
+                module.capabilities
+            )
+        ) {
 
             throw new Error(
                 `Module capabilities must be an array: ${module.moduleId}`
             );
         }
 
-        if (!Array.isArray(
-            module.dependencies
-        )) {
+        if (
+            !Array.isArray(
+                module.dependencies
+            )
+        ) {
 
             throw new Error(
                 `Module dependencies must be an array: ${module.moduleId}`
             );
         }
+
+        if (
+            typeof module.health !==
+            "boolean"
+        ) {
+
+            throw new Error(
+                `Module health must be boolean: ${module.moduleId}`
+            );
+        }
+
+        if (
+            !this.isValidModuleState(
+                module.state
+            )
+        ) {
+
+            throw new Error(
+                `Invalid module state: ${module.moduleId}`
+            );
+        }
     }
 
 
-    // ==============================
-    // Errors
-    // ==============================
+    private isValidModuleState(
+        state:
+            AIRegistryModuleState
+    ):
+        boolean {
+
+        return (
+
+            state === "REGISTERED" ||
+            state === "INITIALIZING" ||
+            state === "ACTIVE" ||
+            state === "PAUSED" ||
+            state === "ERROR" ||
+            state === "STOPPED" ||
+            state === "DISABLED"
+
+        );
+    }
+
+
+    // ========================================================
+    // Error Management
+    // ========================================================
 
     private addError(
         error: string
-    ): void {
+    ):
+        void {
+
+        const message =
+            error.trim();
+
+        if (!message) {
+            return;
+        }
 
         this.errors.push(
-            error
+            message
         );
 
         this.emit({
@@ -881,7 +1214,7 @@ export class AIEngineRegistry {
                 Date.now(),
 
             payload:
-                error
+                message
         });
     }
 
@@ -903,14 +1236,37 @@ export class AIEngineRegistry {
     }
 
 
-    // ==============================
-    // Events
-    // ==============================
+    // ========================================================
+    // Event Registration
+    // ========================================================
 
     public on(
         eventType: string,
-        listener: AIRegistryEventListener
-    ): () => void {
+        listener:
+            AIRegistryEventListener
+    ):
+        () => void {
+
+        if (
+            typeof eventType !==
+            "string" ||
+            !eventType.trim()
+        ) {
+
+            throw new Error(
+                "Event type cannot be empty"
+            );
+        }
+
+        if (
+            typeof listener !==
+            "function"
+        ) {
+
+            throw new Error(
+                "Event listener must be a function"
+            );
+        }
 
         let handlers =
             this.listeners.get(
@@ -936,17 +1292,24 @@ export class AIEngineRegistry {
 
         return () => {
 
-            handlers?.delete(
+            this.off(
+                eventType,
                 listener
             );
         };
     }
 
 
+    // ========================================================
+    // Event Removal
+    // ========================================================
+
     public off(
         eventType: string,
-        listener: AIRegistryEventListener
-    ): void {
+        listener:
+            AIRegistryEventListener
+    ):
+        void {
 
         const handlers =
             this.listeners.get(
@@ -972,9 +1335,15 @@ export class AIEngineRegistry {
     }
 
 
+    // ========================================================
+    // Event Emit
+    // ========================================================
+
     private emit(
-        event: IAIRegistryEvent
-    ): void {
+        event:
+            IAIRegistryEvent
+    ):
+        void {
 
         const handlers =
             this.listeners.get(
@@ -987,7 +1356,9 @@ export class AIEngineRegistry {
 
         for (
             const handler
-            of handlers
+            of Array.from(
+                handlers
+            )
         ) {
 
             try {
@@ -998,21 +1369,22 @@ export class AIEngineRegistry {
 
             } catch (error) {
 
-                this.errors.push(
-
+                const message =
                     error instanceof Error
                         ? error.message
-                        : "Registry event handler failed"
+                        : "Registry event handler failed";
 
+                this.errors.push(
+                    message
                 );
             }
         }
     }
 
 
-    // ==============================
+    // ========================================================
     // Export Registry
-    // ==============================
+    // ========================================================
 
     public export():
         IAIRegistryEntry[] {
@@ -1021,17 +1393,21 @@ export class AIEngineRegistry {
     }
 
 
-    // ==============================
+    // ========================================================
     // Import Registry
-    // ==============================
+    // ========================================================
 
     public import(
-        modules: IAIRegistryModule[]
-    ): number {
+        modules:
+            IAIRegistryModule[]
+    ):
+        number {
 
-        if (!Array.isArray(
-            modules
-        )) {
+        if (
+            !Array.isArray(
+                modules
+            )
+        ) {
 
             return 0;
         }
@@ -1058,9 +1434,9 @@ export class AIEngineRegistry {
     }
 
 
-    // ==============================
+    // ========================================================
     // Registry Information
-    // ==============================
+    // ========================================================
 
     public getRegistryInfo():
         Record<string, unknown> {
@@ -1072,6 +1448,9 @@ export class AIEngineRegistry {
 
             moduleCount:
                 this.modules.size,
+
+            moduleIds:
+                this.getModuleIds(),
 
             stats:
                 this.getStats(),
@@ -1085,9 +1464,9 @@ export class AIEngineRegistry {
     }
 
 
-    // ==============================
+    // ========================================================
     // Clear Registry
-    // ==============================
+    // ========================================================
 
     public clear():
         void {
@@ -1105,4 +1484,81 @@ export class AIEngineRegistry {
             timestamp:
                 Date.now(),
 
-            paylo
+            payload:
+                moduleIds
+        });
+    }
+
+
+    // ========================================================
+    // Destroy
+    // ========================================================
+
+    public destroy():
+        void {
+
+        this.clear();
+
+        this.listeners.clear();
+
+        this.errors.length =
+            0;
+    }
+
+
+    // ========================================================
+    // Utility
+    // ========================================================
+
+    private countState(
+        modules:
+            IAIRegistryEntry[],
+        state:
+            AIRegistryModuleState
+    ):
+        number {
+
+        return modules.filter(
+            module =>
+                module.state === state
+        ).length;
+    }
+
+
+    private cloneEntry(
+        module:
+            IAIRegistryEntry
+    ):
+        IAIRegistryEntry {
+
+        return {
+
+            ...module,
+
+            capabilities:
+                [
+                    ...module.capabilities
+                ],
+
+            dependencies:
+                [
+                    ...module.dependencies
+                ],
+
+            metadata:
+                module.metadata
+                    ? {
+                        ...module.metadata
+                    }
+                    : undefined
+        };
+    }
+}
+
+
+// ============================================================
+// Default Registry
+// ============================================================
+
+export const DefaultAIEngineRegistry =
+    new AIEngineRegistry();
