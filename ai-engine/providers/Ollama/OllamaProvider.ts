@@ -3,124 +3,185 @@
  *
  * Ollama Provider
  * Universal AI Operating Companion
- *
- * Responsibilities:
- * - Manage Ollama provider lifecycle
- * - Handle Ollama AI generation requests
- * - Provide provider health/state information
- * - Expose provider configuration
  */
 
 import {
-    IAIProvider,
-    IAIProviderConfig,
-    IAIProviderRequest,
-    IAIProviderResponse,
-    AIProviderState
+    AIProvider,
+    AIProviderConfig,
+    AIProviderRequest,
+    AIProviderResponse,
+    AIProviderState,
+    ProviderStatus
 } from "../AIProvider";
 
 
 /**
- * OllamaProvider
- *
- * Base implementation for an Ollama-backed AI provider.
+ * Ollama Provider implementation.
  */
-export class OllamaProvider implements IAIProvider {
+export class OllamaProvider implements AIProvider {
 
     /**
      * Provider configuration.
      */
-    private readonly config: IAIProviderConfig;
-
+    private readonly config: AIProviderConfig;
 
     /**
      * Current provider state.
      */
-    private state: AIProviderState = "IDLE";
+    private state: AIProviderState = AIProviderState.IDLE;
 
 
     /**
-     * Creates an OllamaProvider instance.
+     * Creates an Ollama provider.
      */
     constructor(
-        config: IAIProviderConfig
+        config: AIProviderConfig
     ) {
-
-        this.config = config;
-
+        this.config = {
+            ...config,
+            provider: "ollama"
+        };
     }
 
 
-    // ==============================
-    // Lifecycle
-    // ==============================
+    // =========================================================
+    // Provider Identity
+    // =========================================================
+
+    public readonly id: string = this.config.id;
+
+    public readonly provider: string = "ollama";
+
+    public readonly name: string = this.config.name;
+
+
+    // =========================================================
+    // Connection
+    // =========================================================
 
     /**
-     * Initializes the Ollama provider.
+     * Connects to the Ollama provider.
+     *
+     * Actual REST API connectivity can be added later.
+     */
+    public async connect(): Promise<boolean> {
+
+        this.state = AIProviderState.INITIALIZING;
+
+        try {
+
+            /*
+             * Ollama is normally exposed through a local REST
+             * service. Basic connection is intentionally kept
+             * dependency-free for the base implementation.
+             */
+
+            this.state = AIProviderState.READY;
+
+            return true;
+
+        } catch (error) {
+
+            this.state = AIProviderState.ERROR;
+
+            return false;
+        }
+    }
+
+
+    /**
+     * Disconnects the provider.
+     */
+    public async disconnect(): Promise<void> {
+
+        this.state = AIProviderState.OFFLINE;
+    }
+
+
+    /**
+     * Returns whether the provider is connected.
+     */
+    public isConnected(): boolean {
+
+        return (
+            this.state === AIProviderState.READY ||
+            this.state === AIProviderState.BUSY
+        );
+    }
+
+
+    /**
+     * Returns provider connection status.
+     */
+    public getStatus(): ProviderStatus {
+
+        switch (this.state) {
+
+            case AIProviderState.READY:
+            case AIProviderState.BUSY:
+                return ProviderStatus.CONNECTED;
+
+            case AIProviderState.INITIALIZING:
+                return ProviderStatus.CONNECTING;
+
+            case AIProviderState.ERROR:
+                return ProviderStatus.ERROR;
+
+            case AIProviderState.IDLE:
+            case AIProviderState.OFFLINE:
+            default:
+                return ProviderStatus.DISCONNECTED;
+        }
+    }
+
+
+    // =========================================================
+    // Lifecycle
+    // =========================================================
+
+    /**
+     * Initializes the provider.
      */
     public async initialize(): Promise<void> {
 
-        this.state = "INITIALIZING";
+        this.state = AIProviderState.INITIALIZING;
 
         try {
 
             /*
-             * Ollama REST API initialization can be connected here.
-             *
-             * The provider does not make a network request during basic
-             * initialization. This keeps initialization safe in
-             * environments where Ollama is not currently running.
+             * Real Ollama health/API verification can be added here.
              */
 
-            this.state = "READY";
+            this.state = AIProviderState.READY;
 
         } catch (error) {
 
-            this.state = "ERROR";
+            this.state = AIProviderState.ERROR;
 
             throw error;
-
         }
-
     }
 
 
     /**
-     * Shuts down the Ollama provider.
+     * Shuts down the provider.
      */
     public async shutdown(): Promise<void> {
 
-        try {
-
-            /*
-             * Ollama runs as an external service, so there is no local
-             * process to terminate from this provider.
-             */
-
-            this.state = "OFFLINE";
-
-        } catch (error) {
-
-            this.state = "ERROR";
-
-            throw error;
-
-        }
-
+        await this.disconnect();
     }
 
 
-    // ==============================
+    // =========================================================
     // Availability & State
-    // ==============================
+    // =========================================================
 
     /**
-     * Returns whether the Ollama provider is ready.
+     * Returns whether the provider is available.
      */
     public isAvailable(): boolean {
 
-        return this.state === "READY";
-
+        return this.state === AIProviderState.READY;
     }
 
 
@@ -130,38 +191,38 @@ export class OllamaProvider implements IAIProvider {
     public getState(): AIProviderState {
 
         return this.state;
-
     }
 
 
     /**
-     * Returns the provider configuration.
+     * Returns a defensive copy of the configuration.
      */
-    public getConfiguration(): IAIProviderConfig {
+    public getConfiguration(): AIProviderConfig {
 
         return {
-            ...this.config
+            ...this.config,
+            metadata: this.config.metadata
+                ? { ...this.config.metadata }
+                : undefined
         };
-
     }
 
 
-    // ==============================
+    // =========================================================
     // AI Generation
-    // ==============================
+    // =========================================================
 
     /**
-     * Generates a response through the Ollama provider.
+     * Generates an AI response.
      *
-     * The actual Ollama REST API integration can be connected here
+     * Actual Ollama REST API integration can be connected later
      * without changing the provider contract.
      */
     public async generate(
-        request: IAIProviderRequest
-    ): Promise<IAIProviderResponse> {
+        request: AIProviderRequest
+    ): Promise<AIProviderResponse> {
 
-        const startTime =
-            Date.now();
+        const startTime = Date.now();
 
 
         if (!this.isAvailable()) {
@@ -170,22 +231,23 @@ export class OllamaProvider implements IAIProvider {
 
                 success: false,
 
-                provider: "ollama",
+                provider: this.provider,
 
-                model: this.config.name,
+                model:
+                    request.model ??
+                    this.config.model ??
+                    this.config.name,
 
                 error:
                     "Ollama Provider is not initialized.",
 
                 processingTime:
                     Date.now() - startTime
-
             };
-
         }
 
 
-        this.state = "BUSY";
+        this.state = AIProviderState.BUSY;
 
 
         try {
@@ -193,21 +255,33 @@ export class OllamaProvider implements IAIProvider {
             /*
              * TODO:
              *
-             * Integrate the Ollama REST API here.
+             * Connect the Ollama REST API here.
              *
-             * The request parameter is intentionally retained so the
-             * implementation can later pass the request to Ollama
-             * without changing the IAIProvider interface.
+             * Keeping the request object intact allows the real
+             * implementation to use:
+             *
+             * - request.prompt
+             * - request.systemPrompt
+             * - request.context
+             * - request.model
+             * - request.temperature
+             * - request.maxTokens
+             * - request.stream
              */
 
-            const response:
-                IAIProviderResponse = {
+            const response: AIProviderResponse = {
 
                 success: true,
 
-                provider: "ollama",
+                provider: this.provider,
 
-                model: this.config.name,
+                model:
+                    request.model ??
+                    this.config.model ??
+                    this.config.name,
+
+                text:
+                    "Ollama response placeholder.",
 
                 content:
                     "Ollama response placeholder.",
@@ -217,18 +291,19 @@ export class OllamaProvider implements IAIProvider {
 
                 metadata: {
 
-                    requestReceived:
-                        request !== undefined,
+                    requestReceived: true,
 
                     providerState:
-                        "READY"
+                        AIProviderState.READY,
+
+                    mode:
+                        "local"
 
                 }
-
             };
 
 
-            this.state = "READY";
+            this.state = AIProviderState.READY;
 
 
             return response;
@@ -236,16 +311,19 @@ export class OllamaProvider implements IAIProvider {
 
         } catch (error) {
 
-            this.state = "ERROR";
+            this.state = AIProviderState.ERROR;
 
 
             return {
 
                 success: false,
 
-                provider: "ollama",
+                provider: this.provider,
 
-                model: this.config.name,
+                model:
+                    request.model ??
+                    this.config.model ??
+                    this.config.name,
 
                 error:
                     error instanceof Error
@@ -254,39 +332,34 @@ export class OllamaProvider implements IAIProvider {
 
                 processingTime:
                     Date.now() - startTime
-
             };
-
         }
-
     }
 
 
-    // ==============================
+    // =========================================================
     // Health
-    // ==============================
+    // =========================================================
 
     /**
-     * Performs a basic provider health check.
+     * Performs a basic health check.
      */
     public async healthCheck(): Promise<boolean> {
 
-        return this.isAvailable();
-
+        return this.isConnected();
     }
 
 
-    // ==============================
+    // =========================================================
     // Provider Information
-    // ==============================
+    // =========================================================
 
     /**
      * Returns the provider identifier.
      */
     public getProviderName(): string {
 
-        return "ollama";
-
+        return this.provider;
     }
 
 
@@ -296,21 +369,24 @@ export class OllamaProvider implements IAIProvider {
     public getProviderVersion(): string {
 
         return this.config.version;
-
     }
 
 
-    // ==============================
+    // =========================================================
     // Reset
-    // ==============================
+    // =========================================================
 
     /**
-     * Resets the provider to its initial idle state.
+     * Resets the provider to IDLE.
      */
     public reset(): void {
 
-        this.state = "IDLE";
-
+        this.state = AIProviderState.IDLE;
     }
-
 }
+
+
+/**
+ * Default export.
+ */
+export default OllamaProvider;
