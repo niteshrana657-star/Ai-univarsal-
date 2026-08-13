@@ -5,13 +5,17 @@
  *
  * Responsibilities:
  * - Manage AI Engine lifecycle
- * - Register and manage modules
+ * - Register and manage AI Engine modules
+ * - Initialize and shutdown modules safely
  * - Process AI requests
  * - Maintain engine state
  * - Handle engine events
  * - Provide health/status information
  * - Manage errors
- * - Support graceful shutdown
+ * - Support graceful restart/shutdown
+ *
+ * This file is intentionally self-contained.
+ * It does not depend on a specific registry/provider implementation.
  */
 
 // ============================================================
@@ -188,7 +192,9 @@ export interface IAIEngineEvent {
 // ============================================================
 
 export type AIEngineEventHandler =
-    (event: IAIEngineEvent) => void;
+    (
+        event: IAIEngineEvent
+    ) => void;
 
 
 // ============================================================
@@ -264,7 +270,16 @@ export class AIEngineManager {
         number;
 
     private listeners:
-        Map<string, Set<AIEngineEventHandler>>;
+        Map<
+            string,
+            Set<AIEngineEventHandler>
+        >;
+
+    private initializationPromise:
+        Promise<void> | null;
+
+    private shutdownPromise:
+        Promise<void> | null;
 
 
     // ========================================================
@@ -272,8 +287,7 @@ export class AIEngineManager {
     // ========================================================
 
     constructor(
-        config?:
-        Partial<IAIEngineConfig>
+        config?: Partial<IAIEngineConfig>
     ) {
 
         this.config = {
@@ -287,14 +301,18 @@ export class AIEngineManager {
                     ? [
                         ...config.enabledModules
                     ]
-                    : [],
+                    : [
+                        ...DEFAULT_ENGINE_CONFIG.enabledModules
+                    ],
 
             metadata:
                 config?.metadata
                     ? {
                         ...config.metadata
                     }
-                    : {}
+                    : {
+                        ...(DEFAULT_ENGINE_CONFIG.metadata ?? {})
+                    }
         };
 
 
@@ -303,7 +321,10 @@ export class AIEngineManager {
 
 
         this.modules =
-            new Map<string, IAIEngineModule>();
+            new Map<
+                string,
+                IAIEngineModule
+            >();
 
 
         this.startTime =
@@ -331,6 +352,14 @@ export class AIEngineManager {
                 string,
                 Set<AIEngineEventHandler>
             >();
+
+
+        this.initializationPromise =
+            null;
+
+
+        this.shutdownPromise =
+            null;
     }
 
 
@@ -359,7 +388,7 @@ export class AIEngineManager {
 
             metadata:
                 {
-                    ...(this.config.metadata || {})
+                    ...(this.config.metadata ?? {})
                 }
         };
     }
@@ -398,17 +427,79 @@ export class AIEngineManager {
 
 
     // ========================================================
+    // Configuration Updates
+    // ========================================================
+
+    public updateConfig(
+        config: Partial<IAIEngineConfig>
+    ):
+        void {
+
+        if (!config) {
+            return;
+        }
+
+        this.config = {
+
+            ...this.config,
+
+            ...config,
+
+            enabledModules:
+                config.enabledModules
+                    ? [
+                        ...config.enabledModules
+                    ]
+                    : [
+                        ...this.config.enabledModules
+                    ],
+
+            metadata:
+                config.metadata
+                    ? {
+                        ...(
+                            this.config.metadata ?? {}
+                        ),
+                        ...config.metadata
+                    }
+                    : {
+                        ...(this.config.metadata ?? {})
+                    }
+        };
+
+
+        this.updateActivity();
+
+
+        this.emit({
+
+            type:
+                "ENGINE.CONFIG_UPDATED",
+
+            timestamp:
+                Date.now(),
+
+            payload:
+                this.getConfig()
+        });
+    }
+
+
+    // ========================================================
     // Internal State
     // ========================================================
 
     private setState(
         state: AIEngineState
-    ): void {
+    ):
+        void {
 
         this.state =
             state;
 
+
         this.updateActivity();
+
 
         this.emit({
 
@@ -426,13 +517,25 @@ export class AIEngineManager {
 
     private addError(
         error: string
-    ): void {
+    ):
+        void {
+
+        const normalized =
+            error.trim();
+
+
+        if (!normalized) {
+            return;
+        }
+
 
         this.errors.push(
-            error
+            normalized
         );
 
+
         this.updateActivity();
+
 
         this.emit({
 
@@ -443,7 +546,7 @@ export class AIEngineManager {
                 Date.now(),
 
             payload:
-                error
+                normalized
         });
     }
 
@@ -453,6 +556,105 @@ export class AIEngineManager {
 
         this.lastActivity =
             Date.now();
+    }
+
+
+    private normalizeError(
+        error: unknown,
+        fallback: string
+    ):
+        string {
+
+        if (error instanceof Error) {
+
+            return error.message ||
+                fallback;
+        }
+
+
+        if (
+            typeof error === "string" &&
+            error.trim()
+        ) {
+
+            return error.trim();
+        }
+
+
+        return fallback;
+    }
+
+
+    // ========================================================
+    // Module Validation
+    // ========================================================
+
+    private validateModule(
+        module: IAIEngineModule
+    ):
+        void {
+
+        if (!module) {
+
+            throw new Error(
+                "Module is missing"
+            );
+        }
+
+
+        if (
+            typeof module.id !== "string" ||
+            !module.id.trim()
+        ) {
+
+            throw new Error(
+                "Module id is missing"
+            );
+        }
+
+
+        if (
+            typeof module.name !== "string" ||
+            !module.name.trim()
+        ) {
+
+            throw new Error(
+                `Module name is missing: ${module.id}`
+            );
+        }
+
+
+        if (
+            typeof module.initialize !==
+            "function"
+        ) {
+
+            throw new Error(
+                `Module ${module.id} has no initialize method`
+            );
+        }
+
+
+        if (
+            typeof module.shutdown !==
+            "function"
+        ) {
+
+            throw new Error(
+                `Module ${module.id} has no shutdown method`
+            );
+        }
+
+
+        if (
+            typeof module.getStatus !==
+            "function"
+        ) {
+
+            throw new Error(
+                `Module ${module.id} has no getStatus method`
+            );
+        }
     }
 
 
@@ -467,47 +669,22 @@ export class AIEngineManager {
 
         try {
 
-            if (!module) {
-
-                throw new Error(
-                    "Module is missing"
-                );
-            }
-
-
-            if (!module.id) {
-
-                throw new Error(
-                    "Module id is missing"
-                );
-            }
-
-
-            if (!module.name) {
-
-                throw new Error(
-                    "Module name is missing"
-                );
-            }
+            this.validateModule(
+                module
+            );
 
 
             if (
-                typeof module.initialize !== "function"
+                this.modules.has(
+                    module.id
+                )
             ) {
 
-                throw new Error(
-                    `Module ${module.id} has no initialize method`
+                this.addError(
+                    `Module already registered: ${module.id}`
                 );
-            }
 
-
-            if (
-                typeof module.shutdown !== "function"
-            ) {
-
-                throw new Error(
-                    `Module ${module.id} has no shutdown method`
-                );
+                return false;
             }
 
 
@@ -538,11 +715,10 @@ export class AIEngineManager {
         } catch (error) {
 
             this.addError(
-
-                error instanceof Error
-                    ? error.message
-                    : "Module registration failed"
-
+                this.normalizeError(
+                    error,
+                    "Module registration failed"
+                )
             );
 
             return false;
@@ -555,7 +731,10 @@ export class AIEngineManager {
     ):
         boolean {
 
-        if (!moduleId) {
+        if (
+            typeof moduleId !== "string" ||
+            !moduleId.trim()
+        ) {
 
             return false;
         }
@@ -570,6 +749,7 @@ export class AIEngineManager {
         if (removed) {
 
             this.updateActivity();
+
 
             this.emit({
 
@@ -616,7 +796,131 @@ export class AIEngineManager {
 
         this.modules.clear();
 
+
         this.updateActivity();
+
+
+        this.emit({
+
+            type:
+                "MODULES.CLEARED",
+
+            timestamp:
+                Date.now()
+        });
+    }
+
+
+    public getModuleCount():
+        number {
+
+        return this.modules.size;
+    }
+
+
+    // ========================================================
+    // Enabled Module Management
+    // ========================================================
+
+    public getEnabledModules():
+        string[] {
+
+        return [
+            ...this.config.enabledModules
+        ];
+    }
+
+
+    public enableModule(
+        moduleId: string
+    ):
+        boolean {
+
+        if (
+            !this.modules.has(
+                moduleId
+            )
+        ) {
+
+            this.addError(
+                `Cannot enable unknown module: ${moduleId}`
+            );
+
+            return false;
+        }
+
+
+        if (
+            !this.config.enabledModules.includes(
+                moduleId
+            )
+        ) {
+
+            this.config.enabledModules.push(
+                moduleId
+            );
+        }
+
+
+        this.updateActivity();
+
+
+        this.emit({
+
+            type:
+                "MODULE.ENABLED",
+
+            timestamp:
+                Date.now(),
+
+            payload:
+                moduleId
+        });
+
+
+        return true;
+    }
+
+
+    public disableModule(
+        moduleId: string
+    ):
+        boolean {
+
+        const index =
+            this.config.enabledModules.indexOf(
+                moduleId
+            );
+
+
+        if (index < 0) {
+            return false;
+        }
+
+
+        this.config.enabledModules.splice(
+            index,
+            1
+        );
+
+
+        this.updateActivity();
+
+
+        this.emit({
+
+            type:
+                "MODULE.DISABLED",
+
+            timestamp:
+                Date.now(),
+
+            payload:
+                moduleId
+        });
+
+
+        return true;
     }
 
 
@@ -638,8 +942,9 @@ export class AIEngineManager {
 
 
         if (
+            this.state === "READY" ||
             this.state === "RUNNING" ||
-            this.state === "READY"
+            this.state === "PAUSED"
         ) {
 
             return;
@@ -647,12 +952,32 @@ export class AIEngineManager {
 
 
         if (
-            this.state === "INITIALIZING"
+            this.state === "INITIALIZING" &&
+            this.initializationPromise
         ) {
 
-            return;
+            return this.initializationPromise;
         }
 
+
+        this.initializationPromise =
+            this.initializeInternal();
+
+
+        try {
+
+            await this.initializationPromise;
+
+        } finally {
+
+            this.initializationPromise =
+                null;
+        }
+    }
+
+
+    private async initializeInternal():
+        Promise<void> {
 
         try {
 
@@ -662,9 +987,7 @@ export class AIEngineManager {
 
 
             const modules =
-                Array.from(
-                    this.modules.values()
-                );
+                this.getModulesForInitialization();
 
 
             for (
@@ -676,12 +999,27 @@ export class AIEngineManager {
 
                     await module.initialize();
 
+
+                    this.emit({
+
+                        type:
+                            "MODULE.INITIALIZED",
+
+                        timestamp:
+                            Date.now(),
+
+                        payload:
+                            module.id
+                    });
+
                 } catch (error) {
 
                     const message =
-                        error instanceof Error
-                            ? error.message
-                            : "Module initialization failed";
+                        this.normalizeError(
+                            error,
+                            "Module initialization failed"
+                        );
+
 
                     throw new Error(
                         `${module.id}: ${message}`
@@ -706,27 +1044,116 @@ export class AIEngineManager {
 
         } catch (error) {
 
+            const message =
+                this.normalizeError(
+                    error,
+                    "Engine initialization failed"
+                );
+
+
             this.setState(
                 "ERROR"
             );
 
 
             this.addError(
-
-                error instanceof Error
-                    ? error.message
-                    : "Engine initialization failed"
-
+                message
             );
 
 
-            throw error;
+            throw new Error(
+                message
+            );
         }
     }
 
 
+    private getModulesForInitialization():
+        IAIEngineModule[] {
+
+        const enabled =
+            this.config.enabledModules;
+
+
+        if (
+            enabled.length === 0
+        ) {
+
+            return Array.from(
+                this.modules.values()
+            );
+        }
+
+
+        const result:
+            IAIEngineModule[] = [];
+
+
+        for (
+            const moduleId
+            of enabled
+        ) {
+
+            const module =
+                this.modules.get(
+                    moduleId
+                );
+
+
+            if (!module) {
+
+                this.addError(
+                    `Enabled module not registered: ${moduleId}`
+                );
+
+                continue;
+            }
+
+
+            result.push(
+                module
+            );
+        }
+
+
+        return result;
+    }
+
+
+    // ========================================================
+    // Start
+    // ========================================================
+
     public async start():
         Promise<void> {
+
+        if (
+            this.state === "SHUTDOWN"
+        ) {
+
+            throw new Error(
+                "Engine has been shut down"
+            );
+        }
+
+
+        if (
+            this.state === "RUNNING"
+        ) {
+
+            return;
+        }
+
+
+        if (
+            this.state === "CREATED" ||
+            this.state === "STOPPED" ||
+            this.state === "ERROR"
+        ) {
+
+            await this.initialize();
+        }
+
 
         if (
             this.state !== "READY" &&
@@ -762,6 +1189,10 @@ export class AIEngineManager {
     }
 
 
+    // ========================================================
+    // Pause
+    // ========================================================
+
     public async pause():
         Promise<void> {
 
@@ -790,6 +1221,10 @@ export class AIEngineManager {
         });
     }
 
+
+    // ========================================================
+    // Resume
+    // ========================================================
 
     public async resume():
         Promise<void> {
@@ -820,11 +1255,23 @@ export class AIEngineManager {
     }
 
 
+    // ========================================================
+    // Stop
+    // ========================================================
+
     public async stop():
         Promise<void> {
 
         if (
             this.state === "SHUTDOWN"
+        ) {
+
+            return;
+        }
+
+
+        if (
+            this.state === "STOPPED"
         ) {
 
             return;
@@ -847,6 +1294,173 @@ export class AIEngineManager {
     }
 
 
+    // ========================================================
+    // Shutdown
+    // ========================================================
+
+    public async shutdown():
+        Promise<void> {
+
+        if (
+            this.state === "SHUTDOWN"
+        ) {
+
+            return;
+        }
+
+
+        if (
+            this.shutdownPromise
+        ) {
+
+            return this.shutdownPromise;
+        }
+
+
+        this.shutdownPromise =
+            this.shutdownInternal();
+
+
+        try {
+
+            await this.shutdownPromise;
+
+        } finally {
+
+            this.shutdownPromise =
+                null;
+        }
+    }
+
+
+    private async shutdownInternal():
+        Promise<void> {
+
+        const previousState =
+            this.state;
+
+
+        try {
+
+            if (
+                previousState !==
+                "STOPPED"
+            ) {
+
+                this.setState(
+                    "STOPPED"
+                );
+            }
+
+
+            const modules =
+                Array.from(
+                    this.modules.values()
+                ).reverse();
+
+
+            const shutdownErrors:
+                string[] = [];
+
+
+            for (
+                const module
+                of modules
+            ) {
+
+                try {
+
+                    await module.shutdown();
+
+
+                    this.emit({
+
+                        type:
+                            "MODULE.SHUTDOWN",
+
+                        timestamp:
+                            Date.now(),
+
+                        payload:
+                            module.id
+                    });
+
+                } catch (error) {
+
+                    const message =
+                        this.normalizeError(
+                            error,
+                            "Module shutdown failed"
+                        );
+
+
+                    shutdownErrors.push(
+                        `${module.id}: ${message}`
+                    );
+                }
+            }
+
+
+            for (
+                const error
+                of shutdownErrors
+            ) {
+
+                this.addError(
+                    error
+                );
+            }
+
+
+            this.setState(
+                "SHUTDOWN"
+            );
+
+
+            this.emit({
+
+                type:
+                    "ENGINE.SHUTDOWN",
+
+                timestamp:
+                    Date.now(),
+
+                payload:
+                    {
+                        shutdownErrors
+                    }
+            });
+
+        } catch (error) {
+
+            const message =
+                this.normalizeError(
+                    error,
+                    "Engine shutdown failed"
+                );
+
+
+            this.addError(
+                message
+            );
+
+
+            this.setState(
+                "SHUTDOWN"
+            );
+
+
+            throw new Error(
+                message
+            );
+        }
+    }
+
+
+    // ========================================================
+    // Restart
+    // ========================================================
+
     public async restart():
         Promise<void> {
 
@@ -862,7 +1476,8 @@ export class AIEngineManager {
 
         if (
             this.state === "RUNNING" ||
-            this.state === "PAUSED"
+            this.state === "PAUSED" ||
+            this.state === "READY"
         ) {
 
             await this.stop();
@@ -871,7 +1486,61 @@ export class AIEngineManager {
 
         await this.initialize();
 
+
         await this.start();
+    }
+
+
+    // ========================================================
+    // Request Validation
+    // ========================================================
+
+    private validateRequest(
+        request: IAIEngineRequest
+    ):
+        void {
+
+        if (!request) {
+
+            throw new Error(
+                "Request is missing"
+            );
+        }
+
+
+        if (
+            typeof request.id !== "string" ||
+            !request.id.trim()
+        ) {
+
+            throw new Error(
+                "Request id is missing"
+            );
+        }
+
+
+        if (
+            typeof request.type !== "string" ||
+            !request.type.trim()
+        ) {
+
+            throw new Error(
+                "Request type is missing"
+            );
+        }
+
+
+        if (
+            typeof request.timestamp !== "number" ||
+            !Number.isFinite(
+                request.timestamp
+            )
+        ) {
+
+            throw new Error(
+                "Request timestamp is invalid"
+            );
+        }
     }
 
 
@@ -900,33 +1569,14 @@ export class AIEngineManager {
             }
 
 
-            if (!request) {
-
-                throw new Error(
-                    "Request is missing"
-                );
-            }
-
-
-            if (!request.id) {
-
-                throw new Error(
-                    "Request id is missing"
-                );
-            }
-
-
-            if (!request.type) {
-
-                throw new Error(
-                    "Request type is missing"
-                );
-            }
+            this.validateRequest(
+                request
+            );
 
 
             this.requestCount++;
-
             this.activeRequests++;
+
 
             this.updateActivity();
 
@@ -944,6 +1594,18 @@ export class AIEngineManager {
             });
 
 
+            /*
+             * This manager is intentionally responsible for
+             * orchestration, not provider-specific generation.
+             *
+             * Provider/AI routing modules should consume the
+             * request and return the actual AI result.
+             *
+             * The default fallback below keeps the manager
+             * functional even when no routing module has been
+             * attached yet.
+             */
+
             const response:
                 IAIEngineResponse = {
 
@@ -953,13 +1615,16 @@ export class AIEngineManager {
                 result: {
 
                     message:
-                        "Request processed",
+                        "Request processed by AIEngineManager",
 
                     requestId:
                         request.id,
 
                     type:
-                        request.type
+                        request.type,
+
+                    input:
+                        request.input
                 },
 
                 executionPath: [
@@ -972,8 +1637,7 @@ export class AIEngineManager {
                     1,
 
                 processingTime:
-                    Date.now()
-                    -
+                    Date.now() -
                     processingStart,
 
                 metadata: {
@@ -982,7 +1646,10 @@ export class AIEngineManager {
                         this.config.engineId,
 
                     engineVersion:
-                        this.config.version
+                        this.config.version,
+
+                    mode:
+                        this.config.mode
                 }
             };
 
@@ -1005,9 +1672,10 @@ export class AIEngineManager {
         } catch (error) {
 
             const message =
-                error instanceof Error
-                    ? error.message
-                    : "Request processing failed";
+                this.normalizeError(
+                    error,
+                    "Request processing failed"
+                );
 
 
             this.addError(
@@ -1015,7 +1683,8 @@ export class AIEngineManager {
             );
 
 
-            return {
+            const response:
+                IAIEngineResponse = {
 
                 success:
                     false,
@@ -1023,11 +1692,41 @@ export class AIEngineManager {
                 error:
                     message,
 
+                executionPath: [
+
+                    "AIEngineManager"
+
+                ],
+
                 processingTime:
-                    Date.now()
-                    -
-                    processingStart
+                    Date.now() -
+                    processingStart,
+
+                metadata: {
+
+                    engineId:
+                        this.config.engineId,
+
+                    engineVersion:
+                        this.config.version
+                }
             };
+
+
+            this.emit({
+
+                type:
+                    "ENGINE.REQUEST_FAILED",
+
+                timestamp:
+                    Date.now(),
+
+                payload:
+                    response
+            });
+
+
+            return response;
 
         } finally {
 
@@ -1045,11 +1744,33 @@ export class AIEngineManager {
 
 
     // ========================================================
+    // Request Alias
+    // ========================================================
+
+    public async processRequest(
+        request: IAIEngineRequest
+    ):
+        Promise<IAIEngineResponse> {
+
+        return this.process(
+            request
+        );
+    }
+
+
+    // ========================================================
     // Engine Status
     // ========================================================
 
     public getStatus():
         IAIEngineStatus {
+
+        const uptime =
+            this.state === "CREATED"
+                ? 0
+                : Date.now() -
+                  this.startTime;
+
 
         return {
 
@@ -1057,9 +1778,10 @@ export class AIEngineManager {
                 this.state,
 
             uptime:
-                Date.now()
-                -
-                this.startTime,
+                Math.max(
+                    0,
+                    uptime
+                ),
 
             activeModules:
                 this.getModules(),
@@ -1085,21 +1807,146 @@ export class AIEngineManager {
 
 
     // ========================================================
+    // Module Status
+    // ========================================================
+
+    public getModuleStatuses():
+        Record<string, unknown> {
+
+        const statuses:
+            Record<string, unknown> = {};
+
+
+        for (
+            const [
+                id,
+                module
+            ]
+            of this.modules
+        ) {
+
+            try {
+
+                statuses[id] =
+                    module.getStatus();
+
+            } catch (error) {
+
+                statuses[id] = {
+
+                    error:
+                        this.normalizeError(
+                            error,
+                            "Unable to read module status"
+                        )
+                };
+            }
+        }
+
+
+        return statuses;
+    }
+
+
+    // ========================================================
     // Health Check
     // ========================================================
 
     public healthCheck():
         boolean {
 
-        return (
+        if (
+            this.state === "ERROR" ||
+            this.state === "STOPPED" ||
+            this.state === "SHUTDOWN"
+        ) {
 
-            this.state === "READY" ||
+            return false;
+        }
 
-            this.state === "RUNNING" ||
 
-            this.state === "PAUSED"
+        if (
+            this.state !== "READY" &&
+            this.state !== "RUNNING" &&
+            this.state !== "PAUSED"
+        ) {
 
-        );
+            return false;
+        }
+
+
+        return true;
+    }
+
+
+    // ========================================================
+    // Detailed Health
+    // ========================================================
+
+    public getHealth():
+        {
+            healthy: boolean;
+            state: AIEngineState;
+            moduleCount: number;
+            activeRequests: number;
+            errors: string[];
+            timestamp: number;
+        } {
+
+        return {
+
+            healthy:
+                this.healthCheck(),
+
+            state:
+                this.state,
+
+            moduleCount:
+                this.modules.size,
+
+            activeRequests:
+                this.activeRequests,
+
+            errors:
+                [
+                    ...this.errors
+                ],
+
+            timestamp:
+                Date.now()
+        };
+    }
+
+
+    // ========================================================
+    // Error Management
+    // ========================================================
+
+    public clearErrors():
+        void {
+
+        this.errors.length =
+            0;
+
+
+        this.updateActivity();
+
+
+        this.emit({
+
+            type:
+                "ENGINE.ERRORS_CLEARED",
+
+            timestamp:
+                Date.now()
+        });
+    }
+
+
+    public hasErrors():
+        boolean {
+
+        return this.errors.length > 0;
     }
 
 
@@ -1113,7 +1960,10 @@ export class AIEngineManager {
     ):
         void {
 
-        if (!eventType) {
+        if (
+            typeof eventType !== "string" ||
+            !eventType.trim()
+        ) {
 
             throw new Error(
                 "Event type is required"
@@ -1140,7 +1990,9 @@ export class AIEngineManager {
         if (!handlers) {
 
             handlers =
-                new Set<AIEngineEventHandler>();
+                new Set<
+                    AIEngineEventHandler
+                >();
 
 
             this.listeners.set(
@@ -1168,4 +2020,245 @@ export class AIEngineManager {
             );
 
 
-    
+        if (!handlers) {
+            return;
+        }
+
+
+        handlers.delete(
+            callback
+        );
+
+
+        if (
+            handlers.size === 0
+        ) {
+
+            this.listeners.delete(
+                eventType
+            );
+        }
+    }
+
+
+    public once(
+        eventType: string,
+        callback: AIEngineEventHandler
+    ):
+        () => void {
+
+        const wrapper:
+            AIEngineEventHandler =
+            event => {
+
+                this.off(
+                    eventType,
+                    wrapper
+                );
+
+
+                callback(
+                    event
+                );
+            };
+
+
+        this.on(
+            eventType,
+            wrapper
+        );
+
+
+        return () => {
+
+            this.off(
+                eventType,
+                wrapper
+            );
+        };
+    }
+
+
+    private emit(
+        event: IAIEngineEvent
+    ):
+        void {
+
+        const handlers =
+            this.listeners.get(
+                event.type
+            );
+
+
+        if (!handlers) {
+            return;
+        }
+
+
+        const listeners =
+            Array.from(
+                handlers
+            );
+
+
+        for (
+            const handler
+            of listeners
+        ) {
+
+            try {
+
+                handler(
+                    event
+                );
+
+            } catch (error) {
+
+                const message =
+                    this.normalizeError(
+                        error,
+                        "Engine event handler failed"
+                    );
+
+
+                this.errors.push(
+                    message
+                );
+            }
+        }
+    }
+
+
+    // ========================================================
+    // Event Cleanup
+    // ========================================================
+
+    public removeAllListeners(
+        eventType?: string
+    ):
+        void {
+
+        if (
+            typeof eventType === "string" &&
+            eventType.trim()
+        ) {
+
+            this.listeners.delete(
+                eventType
+            );
+
+            return;
+        }
+
+
+        this.listeners.clear();
+    }
+
+
+    // ========================================================
+    // Registry-Friendly Information
+    // ========================================================
+
+    public getEngineInfo():
+        Record<string, unknown> {
+
+        return {
+
+            engineId:
+                this.config.engineId,
+
+            version:
+                this.config.version,
+
+            environment:
+                this.config.environment,
+
+            mode:
+                this.config.mode,
+
+            language:
+                this.config.language,
+
+            state:
+                this.state,
+
+            moduleCount:
+                this.modules.size,
+
+            requestCount:
+                this.requestCount,
+
+            activeRequests:
+                this.activeRequests,
+
+            healthy:
+                this.healthCheck(),
+
+            createdAt:
+                this.startTime,
+
+            lastActivity:
+                this.lastActivity
+        };
+    }
+
+
+    // ========================================================
+    // Reset
+    // ========================================================
+
+    public reset():
+        void {
+
+        if (
+            this.state === "SHUTDOWN"
+        ) {
+
+            throw new Error(
+                "Cannot reset a shut down engine"
+            );
+        }
+
+
+        this.errors.length =
+            0;
+
+
+        this.requestCount =
+            0;
+
+
+        this.activeRequests =
+            0;
+
+
+        this.startTime =
+            Date.now();
+
+
+        this.lastActivity =
+            Date.now();
+
+
+        this.setState(
+            "CREATED"
+        );
+
+
+        this.emit({
+
+            type:
+                "ENGINE.RESET",
+
+            timestamp:
+                Date.now()
+        });
+    }
+}
+
+
+// ============================================================
+// Default Export
+// ============================================================
+
+export default AIEngineManager;
