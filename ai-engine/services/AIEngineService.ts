@@ -15,6 +15,7 @@ import {
 import ProviderManager
   from "../providers/ProviderManager";
 
+
 export interface AIEngineOptions {
 
   autoReconnect: boolean;
@@ -24,6 +25,7 @@ export interface AIEngineOptions {
   enableLogging: boolean;
 
 }
+
 
 export const DEFAULT_ENGINE_OPTIONS:
 AIEngineOptions = {
@@ -36,10 +38,27 @@ AIEngineOptions = {
 
 };
 
+
+export interface AIExecutionRecord {
+
+  duration: number;
+
+  success: boolean;
+
+  timestamp: number;
+
+}
+
+
 export class AIEngineService {
 
   private options =
     DEFAULT_ENGINE_OPTIONS;
+
+
+  private executionHistory:
+    AIExecutionRecord[] = [];
+
 
   /**
    * Configure Engine
@@ -58,6 +77,7 @@ export class AIEngineService {
 
   }
 
+
   /**
    * Get Active Provider
    */
@@ -67,6 +87,7 @@ export class AIEngineService {
     return ProviderManager.getActive();
 
   }
+
 
   /**
    * Check Engine Ready
@@ -84,6 +105,7 @@ export class AIEngineService {
 
   }
 
+
   /**
    * Generate AI Response
    */
@@ -93,6 +115,7 @@ export class AIEngineService {
 
     const provider =
       this.getProvider();
+
 
     if (!provider) {
 
@@ -116,6 +139,7 @@ export class AIEngineService {
 
     }
 
+
     if (
       !provider.isConnected()
     ) {
@@ -126,6 +150,7 @@ export class AIEngineService {
 
         const connected =
           await provider.connect();
+
 
         if (!connected) {
 
@@ -175,11 +200,86 @@ export class AIEngineService {
 
     }
 
+
     return provider.generate(
       request
     );
 
   }
+
+
+  /**
+   * Record AI Engine execution
+   */
+  public recordExecution(
+    record: {
+      duration: number;
+      success: boolean;
+    }
+  ): void {
+
+    this.executionHistory.push({
+
+      duration:
+        record.duration,
+
+      success:
+        record.success,
+
+      timestamp:
+        Date.now()
+
+    });
+
+  }
+
+
+  /**
+   * Get Execution History
+   */
+  public getExecutionHistory():
+    AIExecutionRecord[] {
+
+    return [
+      ...this.executionHistory
+    ];
+
+  }
+
+
+  /**
+   * Get Last Execution
+   */
+  public getLastExecution():
+    AIExecutionRecord | null {
+
+    if (
+      this.executionHistory.length === 0
+    ) {
+
+      return null;
+
+    }
+
+    return (
+      this.executionHistory[
+        this.executionHistory.length - 1
+      ] ?? null
+    );
+
+  }
+
+
+  /**
+   * Clear Execution History
+   */
+  public clearExecutionHistory():
+    void {
+
+    this.executionHistory = [];
+
+  }
+
 
   /**
    * Reset Engine
@@ -189,11 +289,15 @@ export class AIEngineService {
     this.options =
       DEFAULT_ENGINE_OPTIONS;
 
+    this.executionHistory = [];
+
   }
 
 }
 
+
 const aiEngineService =
   new AIEngineService();
+
 
 export default aiEngineService;
