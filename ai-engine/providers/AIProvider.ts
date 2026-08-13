@@ -402,3 +402,14 @@ export const DEFAULT_MAX_TOKENS =
 
 export const AI_PROVIDER_VERSION =
     "1.0.0";
+
+
+// =============================================================
+// Legacy Request / Response Aliases
+// =============================================================
+
+export type AIRequest =
+    AIProviderRequest;
+
+export type AIResponse =
+    AIProviderResponse;
