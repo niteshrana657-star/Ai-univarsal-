@@ -26,33 +26,78 @@ import {
 } from "../AIProvider";
 
 
+// =============================================================
+// LocalProvider
+// =============================================================
+
 export class LocalProvider implements AIProvider {
+
+    // ---------------------------------------------------------
+    // Provider Identity
+    // ---------------------------------------------------------
+
+    public readonly id: string;
+
+    public readonly provider: string =
+        "local";
+
+    public readonly name: string;
+
+
+    // ---------------------------------------------------------
+    // Configuration
+    // ---------------------------------------------------------
 
     private readonly config:
         AIProviderConfig;
 
+
+    // ---------------------------------------------------------
+    // Runtime State
+    // ---------------------------------------------------------
+
     private state:
         AIProviderState =
-            AIProviderState.IDLE;
+        AIProviderState.IDLE;
 
 
-    /**
-     * Constructor
-     */
+    // ---------------------------------------------------------
+    // Connection State
+    // ---------------------------------------------------------
+
+    private connected: boolean =
+        false;
+
+
+    // =========================================================
+    // Constructor
+    // =========================================================
+
     constructor(
         config: AIProviderConfig
     ) {
 
-        this.config = config;
+        this.config = {
+            ...config,
+            provider:
+                config.provider || "local"
+        };
+
+        this.id =
+            config.id || "local";
+
+        this.name =
+            config.name || "Local AI";
 
     }
 
 
-    /**
-     * Connect Provider
-     */
-    public async connect():
-        Promise<boolean> {
+    // =========================================================
+    // Initialize
+    // =========================================================
+
+    public async initialize():
+        Promise<void> {
 
         this.state =
             AIProviderState.INITIALIZING;
@@ -60,16 +105,81 @@ export class LocalProvider implements AIProvider {
         try {
 
             /*
-             * Local AI does not currently
-             * require an external connection.
+             * Local AI initialization can be connected here.
+             *
+             * Supported future runtimes may include:
+             *
+             * - llama.cpp
+             * - ONNX Runtime
+             * - Android local models
+             * - WebAssembly models
+             * - Other local inference engines
              */
+
+            this.connected =
+                true;
 
             this.state =
                 AIProviderState.READY;
 
+        } catch (error) {
+
+            this.connected =
+                false;
+
+            this.state =
+                AIProviderState.ERROR;
+
+            throw error;
+
+        }
+
+    }
+
+
+    // =========================================================
+    // Shutdown
+    // =========================================================
+
+    public async shutdown():
+        Promise<void> {
+
+        this.connected =
+            false;
+
+        this.state =
+            AIProviderState.OFFLINE;
+
+    }
+
+
+    // =========================================================
+    // Connect
+    // =========================================================
+
+    public async connect():
+        Promise<boolean> {
+
+        if (
+            this.connected &&
+            this.state ===
+                AIProviderState.READY
+        ) {
+
             return true;
 
+        }
+
+        try {
+
+            await this.initialize();
+
+            return this.connected;
+
         } catch {
+
+            this.connected =
+                false;
 
             this.state =
                 AIProviderState.ERROR;
@@ -81,94 +191,74 @@ export class LocalProvider implements AIProvider {
     }
 
 
-    /**
-     * Disconnect Provider
-     */
+    // =========================================================
+    // Disconnect
+    // =========================================================
+
     public async disconnect():
         Promise<void> {
 
-        this.state =
-            AIProviderState.OFFLINE;
+        await this.shutdown();
 
     }
 
 
-    /**
-     * Check Connection
-     */
+    // =========================================================
+    // Connection Check
+    // =========================================================
+
     public isConnected():
         boolean {
 
         return (
+            this.connected &&
             this.state ===
-            AIProviderState.READY
+                AIProviderState.READY
         );
 
     }
 
 
-    /**
-     * Get Provider Status
-     */
+    // =========================================================
+    // Provider Status
+    // =========================================================
+
     public getStatus():
         ProviderStatus {
 
-        switch (this.state) {
+        if (
+            this.state ===
+            AIProviderState.INITIALIZING
+        ) {
 
-            case AIProviderState.READY:
-                return ProviderStatus.CONNECTED;
-
-            case AIProviderState.INITIALIZING:
-            case AIProviderState.BUSY:
-                return ProviderStatus.CONNECTING;
-
-            case AIProviderState.ERROR:
-                return ProviderStatus.ERROR;
-
-            case AIProviderState.IDLE:
-            case AIProviderState.OFFLINE:
-            default:
-                return ProviderStatus.DISCONNECTED;
+            return ProviderStatus.CONNECTING;
 
         }
 
-    }
+        if (
+            this.state ===
+            AIProviderState.ERROR
+        ) {
 
-
-    /**
-     * Initialize Provider
-     */
-    public async initialize():
-        Promise<void> {
-
-        const connected =
-            await this.connect();
-
-        if (!connected) {
-
-            throw new Error(
-                "Failed to initialize Local Provider."
-            );
+            return ProviderStatus.ERROR;
 
         }
 
-    }
+        if (this.isConnected()) {
 
+            return ProviderStatus.CONNECTED;
 
-    /**
-     * Shutdown Provider
-     */
-    public async shutdown():
-        Promise<void> {
+        }
 
-        await this.disconnect();
+        return ProviderStatus.DISCONNECTED;
 
     }
 
 
-    /**
-     * Check Availability
-     */
+    // =========================================================
+    // Availability
+    // =========================================================
+
     public isAvailable():
         boolean {
 
@@ -177,9 +267,10 @@ export class LocalProvider implements AIProvider {
     }
 
 
-    /**
-     * Get Current State
-     */
+    // =========================================================
+    // State
+    // =========================================================
+
     public getState():
         AIProviderState {
 
@@ -188,20 +279,24 @@ export class LocalProvider implements AIProvider {
     }
 
 
-    /**
-     * Get Configuration
-     */
+    // =========================================================
+    // Configuration
+    // =========================================================
+
     public getConfiguration():
         AIProviderConfig {
 
-        return this.config;
+        return {
+            ...this.config
+        };
 
     }
 
 
-    /**
-     * Generate AI Response
-     */
+    // =========================================================
+    // Generate
+    // =========================================================
+
     public async generate(
         request: AIProviderRequest
     ): Promise<AIProviderResponse> {
@@ -209,6 +304,10 @@ export class LocalProvider implements AIProvider {
         const startTime =
             Date.now();
 
+
+        // -----------------------------------------------------
+        // Provider Availability
+        // -----------------------------------------------------
 
         if (!this.isAvailable()) {
 
@@ -222,14 +321,53 @@ export class LocalProvider implements AIProvider {
                     this.provider,
 
                 model:
+                    request.model ??
                     this.config.model ??
-                    this.config.name,
+                    this.name,
 
                 timestamp:
                     Date.now(),
 
                 error:
-                    "Local Provider is not initialized.",
+                    "Local Provider is not connected.",
+
+                processingTime:
+                    Date.now() - startTime
+
+            };
+
+        }
+
+
+        // -----------------------------------------------------
+        // Request Validation
+        // -----------------------------------------------------
+
+        if (
+            !request ||
+            typeof request.prompt !==
+                "string"
+        ) {
+
+            return {
+
+                success: false,
+
+                text: "",
+
+                provider:
+                    this.provider,
+
+                model:
+                    request?.model ??
+                    this.config.model ??
+                    this.name,
+
+                timestamp:
+                    Date.now(),
+
+                error:
+                    "Invalid AI provider request.",
 
                 processingTime:
                     Date.now() - startTime
@@ -246,38 +384,26 @@ export class LocalProvider implements AIProvider {
         try {
 
             /*
-             * The actual local inference
-             * implementation will be connected here.
+             * -------------------------------------------------
+             * Local inference placeholder
+             * -------------------------------------------------
              *
-             * Supported future runtimes:
-             * - llama.cpp
-             * - ONNX Runtime
-             * - Android local model
-             * - WebAssembly model
+             * The actual local inference runtime will be
+             * connected here.
+             *
+             * The provider contract remains stable.
              */
 
-            const prompt =
-                request.prompt;
-
-
             const responseText =
-                prompt
-                    ? "Local AI response placeholder."
-                    : "Local AI received an empty prompt.";
+                "Local AI response placeholder.";
 
 
-            this.state =
-                AIProviderState.READY;
-
-
-            return {
+            const response:
+                AIProviderResponse = {
 
                 success: true,
 
                 text:
-                    responseText,
-
-                content:
                     responseText,
 
                 provider:
@@ -286,13 +412,17 @@ export class LocalProvider implements AIProvider {
                 model:
                     request.model ??
                     this.config.model ??
-                    this.config.name,
+                    this.name,
 
                 timestamp:
                     Date.now(),
 
+                content:
+                    responseText,
+
                 processingTime:
-                    Date.now() - startTime,
+                    Date.now() -
+                    startTime,
 
                 metadata: {
 
@@ -306,10 +436,20 @@ export class LocalProvider implements AIProvider {
 
             };
 
-        } catch (error: unknown) {
+
+            this.state =
+                AIProviderState.READY;
+
+
+            return response;
+
+        } catch (error) {
 
             this.state =
                 AIProviderState.ERROR;
+
+            this.connected =
+                false;
 
 
             return {
@@ -322,8 +462,9 @@ export class LocalProvider implements AIProvider {
                     this.provider,
 
                 model:
+                    request.model ??
                     this.config.model ??
-                    this.config.name,
+                    this.name,
 
                 timestamp:
                     Date.now(),
@@ -334,7 +475,8 @@ export class LocalProvider implements AIProvider {
                         : "Unknown Local AI error",
 
                 processingTime:
-                    Date.now() - startTime
+                    Date.now() -
+                    startTime
 
             };
 
@@ -343,9 +485,10 @@ export class LocalProvider implements AIProvider {
     }
 
 
-    /**
-     * Health Check
-     */
+    // =========================================================
+    // Health Check
+    // =========================================================
+
     public async healthCheck():
         Promise<boolean> {
 
@@ -354,42 +497,22 @@ export class LocalProvider implements AIProvider {
     }
 
 
-    /**
-     * Provider ID
-     */
-    public get id():
+    // =========================================================
+    // Provider Name
+    // =========================================================
+
+    public getProviderName():
         string {
 
-        return this.config.id;
+        return this.provider;
 
     }
 
 
-    /**
-     * Provider Identifier
-     */
-    public get provider():
-        string {
+    // =========================================================
+    // Provider Version
+    // =========================================================
 
-        return this.config.provider;
-
-    }
-
-
-    /**
-     * Provider Name
-     */
-    public get name():
-        string {
-
-        return this.config.name;
-
-    }
-
-
-    /**
-     * Provider Version
-     */
     public getProviderVersion():
         string {
 
@@ -398,15 +521,26 @@ export class LocalProvider implements AIProvider {
     }
 
 
-    /**
-     * Reset Provider
-     */
+    // =========================================================
+    // Reset
+    // =========================================================
+
     public reset():
         void {
+
+        this.connected =
+            false;
 
         this.state =
             AIProviderState.IDLE;
 
     }
 
-    }
+}
+
+
+// =============================================================
+// Default Export
+// =============================================================
+
+export default LocalProvider;
