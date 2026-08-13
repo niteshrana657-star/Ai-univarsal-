@@ -1,23 +1,49 @@
 /**
- * AIProvider.ts
- *
- * Base Provider Contract
+ * -------------------------------------------------------------
  * Universal AI Operating Companion
+ * AI Engine Module
+ * File: AIProvider.ts
+ * -------------------------------------------------------------
+ *
+ * Unified AI Provider Contract
+ *
+ * All AI providers must follow this contract:
+ * - Gemini
+ * - OpenAI
+ * - Ollama
+ * - Local AI
+ * -------------------------------------------------------------
  */
 
-// ==============================
-// Provider Types
-// ==============================
+// =============================================================
+// Provider State
+// =============================================================
 
-export type AIProviderState =
-    | "IDLE"
-    | "INITIALIZING"
-    | "READY"
-    | "BUSY"
-    | "OFFLINE"
-    | "ERROR";
+export enum AIProviderState {
+    IDLE = "IDLE",
+    INITIALIZING = "INITIALIZING",
+    READY = "READY",
+    BUSY = "BUSY",
+    OFFLINE = "OFFLINE",
+    ERROR = "ERROR"
+}
 
 
+// =============================================================
+// Provider Status
+// =============================================================
+
+export enum ProviderStatus {
+    CONNECTED = "CONNECTED",
+    DISCONNECTED = "DISCONNECTED",
+    CONNECTING = "CONNECTING",
+    ERROR = "ERROR"
+}
+
+
+// =============================================================
+// Provider Capabilities
+// =============================================================
 
 export type AIProviderCapability =
     | "CHAT"
@@ -28,16 +54,17 @@ export type AIProviderCapability =
     | "IMAGE_GENERATION";
 
 
-
-// ==============================
+// =============================================================
 // Provider Configuration
-// ==============================
+// =============================================================
 
-export interface IAIProviderConfig {
+export interface AIProviderConfig {
 
     id: string;
 
     name: string;
+
+    provider: string;
 
     version: string;
 
@@ -47,20 +74,28 @@ export interface IAIProviderConfig {
 
     endpoint?: string;
 
+    model?: string;
+
     timeout: number;
 
     maxTokens: number;
 
     metadata?: Record<string, unknown>;
-
 }
-// ==============================
+
+
+// Backward-compatible configuration name
+export type IAIProviderConfig =
+    AIProviderConfig;
+
+
+// =============================================================
 // Provider Request
-// ==============================
+// =============================================================
 
-export interface IAIProviderRequest {
+export interface AIProviderRequest {
 
-    id: string;
+    id?: string;
 
     prompt: string;
 
@@ -77,22 +112,29 @@ export interface IAIProviderRequest {
     stream?: boolean;
 
     metadata?: Record<string, unknown>;
-
 }
 
 
+// Backward-compatible request name
+export type IAIProviderRequest =
+    AIProviderRequest;
 
-// ==============================
+
+// =============================================================
 // Provider Response
-// ==============================
+// =============================================================
 
-export interface IAIProviderResponse {
+export interface AIProviderResponse {
 
     success: boolean;
+
+    text: string;
 
     provider: string;
 
     model: string;
+
+    timestamp: number;
 
     content?: string;
 
@@ -109,16 +151,71 @@ export interface IAIProviderResponse {
     error?: string;
 
     metadata?: Record<string, unknown>;
+}
+
+
+// Backward-compatible response name
+export type IAIProviderResponse =
+    AIProviderResponse;
+
+
+// =============================================================
+// Provider Contract
+// =============================================================
+
+export interface AIProvider {
+
+    /**
+     * Unique provider ID
+     */
+    readonly id: string;
+
+    /**
+     * Provider name
+     */
+    readonly provider: string;
+
+    /**
+     * Human-readable name
+     */
+    readonly name: string;
+
+    /**
+     * Connect provider
+     */
+    connect(): Promise<boolean>;
+
+    /**
+     * Disconnect provider
+     */
+    disconnect(): Promise<void>;
+
+    /**
+     * Check connection
+     */
+    isConnected(): boolean;
+
+    /**
+     * Get provider status
+     */
+    getStatus(): ProviderStatus;
+
+    /**
+     * Generate AI response
+     */
+    generate(
+        request: AIProviderRequest
+    ): Promise<AIProviderResponse>;
 
 }
 
 
+// =============================================================
+// Extended Provider Lifecycle
+// =============================================================
 
-// ==============================
-// Provider Interface
-// ==============================
-
-export interface IAIProvider {
+export interface AIProviderLifecycle
+    extends AIProvider {
 
     initialize(): Promise<void>;
 
@@ -128,18 +225,15 @@ export interface IAIProvider {
 
     getState(): AIProviderState;
 
-    getConfiguration(): IAIProviderConfig;
-
-    generate(
-        request: IAIProviderRequest
-    ): Promise<IAIProviderResponse>;
-
+    getConfiguration(): AIProviderConfig;
 }
-// ==============================
-// Provider Health
-// ==============================
 
-export interface IAIProviderHealth {
+
+// =============================================================
+// Provider Health
+// =============================================================
+
+export interface AIProviderHealth {
 
     available: boolean;
 
@@ -152,16 +246,19 @@ export interface IAIProviderHealth {
     uptime: number;
 
     message?: string;
-
 }
 
 
+// Backward-compatible health name
+export type IAIProviderHealth =
+    AIProviderHealth;
 
-// ==============================
+
+// =============================================================
 // Provider Metrics
-// ==============================
+// =============================================================
 
-export interface IAIProviderMetrics {
+export interface AIProviderMetrics {
 
     totalRequests: number;
 
@@ -174,16 +271,19 @@ export interface IAIProviderMetrics {
     totalTokens: number;
 
     lastRequestTime?: number;
-
 }
 
 
+// Backward-compatible metrics name
+export type IAIProviderMetrics =
+    AIProviderMetrics;
 
-// ==============================
-// Provider Events
-// ==============================
 
-export interface IAIProviderEvent {
+// =============================================================
+// Provider Event
+// =============================================================
+
+export interface AIProviderEvent {
 
     type: string;
 
@@ -192,51 +292,31 @@ export interface IAIProviderEvent {
     provider: string;
 
     payload?: Record<string, unknown>;
-
 }
 
 
-
-// ==============================
-// Extended Provider Contract
-// ==============================
-
-export interface IAIProviderLifecycle
-    extends IAIProvider {
-
-    getHealth():
-        IAIProviderHealth;
-
-    getMetrics():
-        IAIProviderMetrics;
-
-    resetMetrics():
-        void;
-
-    emit(
-        event: IAIProviderEvent
-    ): void;
-
-    }
-// ==============================
+// =============================================================
 // Provider Factory Contract
-// ==============================
+// =============================================================
 
-export interface IAIProviderFactory {
+export interface AIProviderFactory {
 
     create(
-        config: IAIProviderConfig
-    ): Promise<IAIProvider>;
-
+        config: AIProviderConfig
+    ): Promise<AIProvider>;
 }
 
 
+// Backward-compatible factory name
+export type IAIProviderFactory =
+    AIProviderFactory;
 
-// ==============================
+
+// =============================================================
 // Provider Registry Entry
-// ==============================
+// =============================================================
 
-export interface IAIProviderRegistryEntry {
+export interface AIProviderRegistryEntry {
 
     id: string;
 
@@ -248,15 +328,18 @@ export interface IAIProviderRegistryEntry {
 
     enabled: boolean;
 
-    provider: IAIProvider;
-
+    provider: AIProvider;
 }
 
 
+// Backward-compatible registry name
+export type IAIProviderRegistryEntry =
+    AIProviderRegistryEntry;
 
-// ==============================
-// Constants
-// ==============================
+
+// =============================================================
+// Defaults
+// =============================================================
 
 export const DEFAULT_PROVIDER_TIMEOUT =
     30000;
@@ -265,10 +348,9 @@ export const DEFAULT_MAX_TOKENS =
     4096;
 
 
-
-// ==============================
+// =============================================================
 // Version
-// ==============================
+// =============================================================
 
 export const AI_PROVIDER_VERSION =
     "1.0.0";
