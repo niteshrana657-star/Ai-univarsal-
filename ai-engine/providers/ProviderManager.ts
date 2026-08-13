@@ -29,15 +29,18 @@ export class ProviderManager {
     ): void {
 
         if (!provider || !provider.id) {
+
             throw new Error(
                 "Invalid AI provider."
             );
+
         }
 
         this.providers.set(
             provider.id,
             provider
         );
+
 
         if (
             this.activeProviderId === null
@@ -85,7 +88,9 @@ export class ProviderManager {
         AIProvider | null {
 
         if (!this.activeProviderId) {
+
             return null;
+
         }
 
         return (
@@ -93,6 +98,20 @@ export class ProviderManager {
                 this.activeProviderId
             ) ?? null
         );
+
+    }
+
+
+    /**
+     * Get Active Provider
+     *
+     * Compatibility alias used by
+     * AI Engine Core.
+     */
+    public getActiveProvider():
+        AIProvider | null {
+
+        return this.getActive();
 
     }
 
@@ -169,7 +188,9 @@ export class ProviderManager {
             this.get(id);
 
         if (!provider) {
+
             return false;
+
         }
 
         try {
@@ -196,7 +217,9 @@ export class ProviderManager {
             this.get(id);
 
         if (!provider) {
+
             return false;
+
         }
 
         try {
@@ -226,7 +249,9 @@ export class ProviderManager {
             this.get(id);
 
         if (!provider) {
+
             return null;
+
         }
 
         return provider.getStatus();
@@ -256,6 +281,7 @@ export class ProviderManager {
         const removed =
             this.providers.delete(id);
 
+
         if (
             this.activeProviderId === id
         ) {
@@ -263,11 +289,13 @@ export class ProviderManager {
             this.activeProviderId =
                 null;
 
+
             const firstProvider =
                 this.providers.values()
                     .next()
                     .value as
                     AIProvider | undefined;
+
 
             if (firstProvider) {
 
