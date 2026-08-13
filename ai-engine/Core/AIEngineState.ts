@@ -5,7 +5,7 @@
  * Maintains runtime state of AI Engine.
  */
 
-import {
+import type {
     AIRequest,
     AIResponse
 } from "./AIEngineTypes";
