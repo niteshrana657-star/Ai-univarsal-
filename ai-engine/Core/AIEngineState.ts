@@ -5,7 +5,10 @@
  * Maintains runtime state of AI Engine.
  */
 
-import { AIRequest, AIResponse } from "./AIEngine";
+import {
+    AIRequest,
+    AIResponse
+} from "./AIEngineTypes";
 
 
 export class AIEngineState {
@@ -24,7 +27,6 @@ export class AIEngineState {
         string | null = null;
 
 
-
     /**
      * Set initialization state
      */
@@ -37,7 +39,6 @@ export class AIEngineState {
     }
 
 
-
     /**
      * Check initialization state
      */
@@ -46,7 +47,6 @@ export class AIEngineState {
         return this.initialized;
 
     }
-
 
 
     /**
@@ -61,7 +61,6 @@ export class AIEngineState {
     }
 
 
-
     /**
      * Check processing status
      */
@@ -70,7 +69,6 @@ export class AIEngineState {
         return this.processing;
 
     }
-
 
 
     /**
@@ -85,7 +83,6 @@ export class AIEngineState {
     }
 
 
-
     /**
      * Get latest request
      */
@@ -95,7 +92,6 @@ export class AIEngineState {
         return this.lastRequest;
 
     }
-
 
 
     /**
@@ -110,7 +106,6 @@ export class AIEngineState {
     }
 
 
-
     /**
      * Get latest response
      */
@@ -120,7 +115,6 @@ export class AIEngineState {
         return this.lastResponse;
 
     }
-
 
 
     /**
@@ -135,7 +129,6 @@ export class AIEngineState {
     }
 
 
-
     /**
      * Get current error
      */
@@ -147,7 +140,6 @@ export class AIEngineState {
     }
 
 
-
     /**
      * Check if engine has error
      */
@@ -156,7 +148,6 @@ export class AIEngineState {
         return this.error !== null;
 
     }
-
 
 
     /**
@@ -173,7 +164,6 @@ export class AIEngineState {
         this.error = null;
 
     }
-
 
 
     /**
