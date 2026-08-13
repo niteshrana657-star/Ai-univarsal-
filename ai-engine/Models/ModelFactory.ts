@@ -8,7 +8,6 @@
 
 import {
   AIModel,
-  AIModelConfig,
   createAIModel
 } from "./AIModel";
 
@@ -20,7 +19,7 @@ export class ModelFactory {
    * Create Model
    */
   public create(
-    config: AIModelConfig
+    config: Partial<AIModel>
   ): AIModel {
 
     const model =
@@ -36,7 +35,7 @@ export class ModelFactory {
    * Create Multiple Models
    */
   public createMany(
-    configs: AIModelConfig[]
+    configs: Partial<AIModel>[]
   ): AIModel[] {
 
     return configs.map(
@@ -44,7 +43,8 @@ export class ModelFactory {
     );
 
   }
-    /**
+
+  /**
    * Clone Existing Model
    */
   public clone(
@@ -104,7 +104,8 @@ export class ModelFactory {
     return ModelRegistry.getAll();
 
   }
-    /**
+
+  /**
    * Check Model Exists
    */
   public exists(
