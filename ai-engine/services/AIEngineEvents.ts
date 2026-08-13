@@ -1,159 +1,248 @@
 /**
- * -------------------------------------------------------------
  * Universal AI Operating Companion
- * AI Engine Module
- * File: AIEngineEvents.ts
- * -------------------------------------------------------------
+ * AI Engine Events
+ *
+ * Central event system for the AI Engine.
  */
 
-export enum AIEngineEvent {
+export type AIEngineEventName =
+    | "AI_ENGINE_INITIALIZED"
+    | "AI_ENGINE_SHUTDOWN"
+    | "AI_REQUEST_STARTED"
+    | "AI_REQUEST_COMPLETED"
+    | "AI_REQUEST_FAILED"
+    | "AI_ENGINE_ERROR"
+    | "AI_PROVIDER_CHANGED"
+    | "AI_STATE_CHANGED"
+    | "AI_SECURITY_EVENT";
 
-  INITIALIZING =
-    "ai_engine.initializing",
 
-  INITIALIZED =
-    "ai_engine.initialized",
+/**
+ * AI Engine Event
+ */
+export interface AIEngineEvent<T = unknown> {
 
-  SHUTDOWN =
-    "ai_engine.shutdown",
+    type: AIEngineEventName;
 
-  RESTART =
-    "ai_engine.restart",
+    payload: T;
 
-  READY =
-    "ai_engine.ready",
-
-  NOT_READY =
-    "ai_engine.not_ready",
-
-  REQUEST_STARTED =
-    "ai_engine.request.started",
-
-  REQUEST_COMPLETED =
-    "ai_engine.request.completed",
-
-  REQUEST_FAILED =
-    "ai_engine.request.failed",
-
-  PROVIDER_CONNECTED =
-    "provider.connected",
-
-  PROVIDER_DISCONNECTED =
-    "provider.disconnected",
-
-  PROVIDER_CHANGED =
-    "provider.changed",
-
-  MODEL_CHANGED =
-    "model.changed",
-
-  RESPONSE_RECEIVED =
-    "response.received",
-
-  RESPONSE_STREAM =
-    "response.stream",
-
-  ERROR =
-    "ai_engine.error"
+    timestamp: number;
 
 }
 
-export interface AIEngineEventPayload<T = unknown> {
 
-  event: AIEngineEvent;
+/**
+ * Event listener
+ */
+export type AIEngineEventListener<T = unknown> =
+    (
+        event: AIEngineEvent<T>
+    ) => void;
 
-  timestamp: number;
 
-  data?: T;
+/**
+ * AI Engine Events Manager
+ */
+export class AIEngineEvents {
 
-}
+    private readonly listeners:
+        Map<
+            AIEngineEventName,
+            Set<AIEngineEventListener>
+        >;
 
-export type AIEngineEventListener<T = unknown> = (
-  payload: AIEngineEventPayload<T>
-) => void;
 
-export class AIEngineEventEmitter {
+    constructor() {
 
-  private listeners = new Map<
-    AIEngineEvent,
-    Set<AIEngineEventListener>
-  >();
-
-  /**
-   * Subscribe
-   */
-  public on(
-    event: AIEngineEvent,
-    listener: AIEngineEventListener
-  ): void {
-
-    if (!this.listeners.has(event)) {
-
-      this.listeners.set(
-        event,
-        new Set()
-      );
+        this.listeners =
+            new Map();
 
     }
 
-    this.listeners
-      .get(event)!
-      .add(listener);
 
-  }
+    /**
+     * Register an event listener
+     */
+    on<T = unknown>(
+        eventName: AIEngineEventName,
+        listener: AIEngineEventListener<T>
+    ): () => void {
 
-  /**
-   * Unsubscribe
-   */
-  public off(
-    event: AIEngineEvent,
-    listener: AIEngineEventListener
-  ): void {
+        let eventListeners =
+            this.listeners.get(
+                eventName
+            );
 
-    this.listeners
-      .get(event)
-      ?.delete(listener);
 
-  }
+        if (!eventListeners) {
 
-  /**
-   * Emit Event
-   */
-  public emit<T>(
-    event: AIEngineEvent,
-    data?: T
-  ): void {
+            eventListeners =
+                new Set();
 
-    const payload: AIEngineEventPayload<T> = {
+            this.listeners.set(
+                eventName,
+                eventListeners
+            );
 
-      event,
+        }
 
-      timestamp: Date.now(),
 
-      data
+        eventListeners.add(
+            listener as AIEngineEventListener
+        );
 
-    };
 
-    this.listeners
-      .get(event)
-      ?.forEach(listener =>
-        listener(payload)
-      );
+        return () => {
 
-  }
+            this.off(
+                eventName,
+                listener
+            );
 
-  /**
-   * Remove All Listeners
-   */
-  public clear(): void {
+        };
 
-    this.listeners.clear();
+    }
 
-  }
+
+    /**
+     * Remove an event listener
+     */
+    off<T = unknown>(
+        eventName: AIEngineEventName,
+        listener: AIEngineEventListener<T>
+    ): void {
+
+        const eventListeners =
+            this.listeners.get(
+                eventName
+            );
+
+
+        if (!eventListeners) {
+
+            return;
+
+        }
+
+
+        eventListeners.delete(
+            listener as AIEngineEventListener
+        );
+
+
+        if (
+            eventListeners.size === 0
+        ) {
+
+            this.listeners.delete(
+                eventName
+            );
+
+        }
+
+    }
+
+
+    /**
+     * Emit an event
+     */
+    emit<T = unknown>(
+        eventName: AIEngineEventName,
+        payload: T
+    ): void {
+
+        const event:
+            AIEngineEvent<T> = {
+
+            type:
+                eventName,
+
+            payload,
+
+            timestamp:
+                Date.now()
+
+        };
+
+
+        const eventListeners =
+            this.listeners.get(
+                eventName
+            );
+
+
+        if (!eventListeners) {
+
+            return;
+
+        }
+
+
+        for (
+            const listener
+            of eventListeners
+        ) {
+
+            try {
+
+                listener(event);
+
+            } catch {
+
+                /*
+                 * Listener failures must not
+                 * break the AI Engine event loop.
+                 */
+
+            }
+
+        }
+
+    }
+
+
+    /**
+     * Check whether an event has listeners
+     */
+    hasListeners(
+        eventName: AIEngineEventName
+    ): boolean {
+
+        const eventListeners =
+            this.listeners.get(
+                eventName
+            );
+
+
+        return Boolean(
+            eventListeners &&
+            eventListeners.size > 0
+        );
+
+    }
+
+
+    /**
+     * Remove all listeners
+     */
+    clear(): void {
+
+        this.listeners.clear();
+
+    }
+
+
+    /**
+     * Remove listeners for one event
+     */
+    clearEvent(
+        eventName: AIEngineEventName
+    ): void {
+
+        this.listeners.delete(
+            eventName
+        );
+
+    }
 
 }
-
-const aiEngineEvents =
-  new AIEngineEventEmitter();
-
-export default aiEngineEvents;
