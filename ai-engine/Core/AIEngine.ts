@@ -23,6 +23,9 @@ import { UserPrompt } from "../prompts/UserPrompt";
 import { ContextPrompt } from "../prompts/ContextPrompt";
 
 
+/**
+ * AI Request
+ */
 export interface AIRequest {
     message: string;
     context?: Record<string, unknown>;
@@ -31,6 +34,9 @@ export interface AIRequest {
 }
 
 
+/**
+ * AI Response
+ */
 export interface AIResponse {
     success: boolean;
     message: string;
@@ -40,6 +46,9 @@ export interface AIResponse {
 }
 
 
+/**
+ * Main AI Engine
+ */
 export class AIEngine {
 
     private readonly config: AIEngineConfig;
@@ -73,6 +82,8 @@ export class AIEngine {
      */
     private initialize(): void {
 
+        this.state.reset();
+
         this.state.setInitialized(true);
 
         this.events.emit(
@@ -93,7 +104,26 @@ export class AIEngine {
 
         const startTime = Date.now();
 
+        let executionSuccess = false;
+
+
         try {
+
+            /**
+             * Validate request
+             */
+            this.validateRequest(request);
+
+
+            /**
+             * Clear previous request error.
+             *
+             * Important:
+             * A previous failed request must not
+             * affect the current request.
+             */
+            this.state.setError(null);
+
 
             this.state.setProcessing(true);
             this.state.setLastRequest(request);
@@ -105,10 +135,16 @@ export class AIEngine {
             );
 
 
+            /**
+             * Build final prompt
+             */
             const prompt =
                 this.buildPrompt(request);
 
 
+            /**
+             * Resolve active provider
+             */
             const provider =
                 this.providerManager.getActiveProvider();
 
@@ -121,12 +157,31 @@ export class AIEngine {
             }
 
 
+            /**
+             * Execute request through provider
+             */
             const result =
                 await provider.generate(
                     prompt
                 );
 
 
+            /**
+             * Validate provider response
+             */
+            if (
+                typeof result !== "string"
+            ) {
+
+                throw new Error(
+                    "AI provider returned an invalid response"
+                );
+            }
+
+
+            /**
+             * Successful response
+             */
             const response: AIResponse = {
 
                 success: true,
@@ -142,9 +197,15 @@ export class AIEngine {
             };
 
 
+            executionSuccess = true;
+
+
             this.state.setLastResponse(
                 response
             );
+
+
+            this.state.setError(null);
 
 
             this.events.emit(
@@ -156,17 +217,25 @@ export class AIEngine {
             return response;
 
 
-        } catch(error:any) {
+        } catch (error: unknown) {
+
+            /**
+             * Normalize unknown errors safely
+             */
+            const errorMessage =
+                error instanceof Error
+                    ? error.message
+                    : String(error);
 
 
             const response: AIResponse = {
 
-                success:false,
+                success: false,
 
-                message:"",
+                message: "",
 
                 error:
-                    error.message ??
+                    errorMessage ||
                     "Unknown AI Engine error",
 
                 timestamp:
@@ -175,8 +244,16 @@ export class AIEngine {
             };
 
 
+            executionSuccess = false;
+
+
+            this.state.setLastResponse(
+                response
+            );
+
+
             this.state.setError(
-                response.error
+                response.error ?? null
             );
 
 
@@ -191,19 +268,27 @@ export class AIEngine {
 
         } finally {
 
-
+            /**
+             * Always release processing state
+             */
             this.state.setProcessing(false);
 
 
+            /**
+             * Record the actual result of
+             * this specific execution.
+             *
+             * Do NOT use state.hasError() here,
+             * because that represents persistent
+             * engine state rather than this request.
+             */
             this.service.recordExecution({
 
                 duration:
                     Date.now() - startTime,
 
                 success:
-                    this.state.hasError()
-                        ? false
-                        : true
+                    executionSuccess
 
             });
 
@@ -212,6 +297,42 @@ export class AIEngine {
     }
 
 
+    /**
+     * Validate incoming AI request
+     */
+    private validateRequest(
+        request: AIRequest
+    ): void {
+
+        if (!request) {
+
+            throw new Error(
+                "AI request is required"
+            );
+        }
+
+
+        if (
+            typeof request.message !== "string"
+        ) {
+
+            throw new Error(
+                "AI request message must be a string"
+            );
+        }
+
+
+        if (
+            request.message.trim().length === 0
+        ) {
+
+            throw new Error(
+                "AI request message cannot be empty"
+            );
+        }
+
+    }
+
 
     /**
      * Build final AI prompt
@@ -219,7 +340,6 @@ export class AIEngine {
     private buildPrompt(
         request: AIRequest
     ): string {
-
 
         const system =
             request.systemInstruction ??
@@ -247,11 +367,14 @@ export class AIEngine {
             user
 
         ]
-        .filter(Boolean)
-        .join("\n\n");
+            .filter(
+                (part): part is string =>
+                    typeof part === "string" &&
+                    part.trim().length > 0
+            )
+            .join("\n\n");
 
     }
-
 
 
     /**
@@ -264,23 +387,32 @@ export class AIEngine {
     }
 
 
+    /**
+     * Get engine configuration
+     */
+    getConfig(): AIEngineConfig {
+
+        return this.config;
+
+    }
+
 
     /**
      * Shutdown AI Engine
      */
     shutdown(): void {
 
-
         this.state.setProcessing(false);
+
+        this.state.setInitialized(false);
 
         this.events.emit(
             "AI_ENGINE_SHUTDOWN",
             {
-                timestamp:Date.now()
+                timestamp: Date.now()
             }
         );
 
     }
 
-
-    }
+}
