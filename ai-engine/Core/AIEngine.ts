@@ -84,6 +84,7 @@ export class AIEngine {
         try {
 
             this.state.setProcessing(true);
+            this.state.setError(null);
             this.state.setLastRequest(request);
 
             this.events.emit(
@@ -157,7 +158,8 @@ export class AIEngine {
 
                 message: "",
 
-                error: errorMessage,
+                error:
+                    errorMessage,
 
                 timestamp:
                     Date.now()
@@ -167,6 +169,10 @@ export class AIEngine {
 
             this.state.setError(
                 errorMessage
+            );
+
+            this.state.setLastResponse(
+                response
             );
 
 
@@ -181,6 +187,9 @@ export class AIEngine {
 
         } finally {
 
+            const hasError =
+                this.state.hasError();
+
             this.state.setProcessing(false);
 
             this.service.recordExecution({
@@ -189,7 +198,7 @@ export class AIEngine {
                     Date.now() - startTime,
 
                 success:
-                    !this.state.hasError()
+                    !hasError
 
             });
 
@@ -223,13 +232,9 @@ export class AIEngine {
 
 
         return [
-
             system,
-
             context,
-
             user
-
         ]
         .filter(Boolean)
         .join("\n\n");
@@ -263,4 +268,4 @@ export class AIEngine {
 
     }
 
-            }
+}
