@@ -48,11 +48,17 @@ export class OllamaProvider implements AIProvider {
     // Provider Identity
     // =========================================================
 
-    public readonly id: string = this.config.id;
+    public get id(): string {
+    return this.config.id;
+}
 
-    public readonly provider: string = "ollama";
+public get provider(): string {
+    return "ollama";
+}
 
-    public readonly name: string = this.config.name;
+public get name(): string {
+    return this.config.name;
+}
 
 
     // =========================================================
