@@ -15,7 +15,6 @@ export {
   default as createContextPrompt,
   CONTEXT_PROMPT_VERSION,
   EMPTY_CONTEXT,
-  createContextPrompt,
   buildCompleteContext,
   normalizeContext,
   validateContext,
