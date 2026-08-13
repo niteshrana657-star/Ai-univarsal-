@@ -8,9 +8,9 @@
 
 import {
   AIModel
-} from "../models/AIModel";
+} from "../Models/AIModel";
 
-import ModelManager from "../models/ModelManager";
+import ModelManager from "../Models/ModelManager";
 
 export class RuntimeEngine {
 
@@ -25,6 +25,7 @@ export class RuntimeEngine {
       ModelManager.getActiveModel();
 
   }
+
   /**
    * Start Runtime
    */
@@ -53,6 +54,17 @@ export class RuntimeEngine {
   }
 
   /**
+   * Restart Runtime
+   */
+  public restart(): boolean {
+
+    this.stop();
+
+    return this.start();
+
+  }
+
+  /**
    * Check Running State
    */
   public isRunning(): boolean {
@@ -70,7 +82,8 @@ export class RuntimeEngine {
     return this.currentModel;
 
   }
-    /**
+
+  /**
    * Switch Active Model
    */
   public switchModel(
@@ -113,7 +126,8 @@ export class RuntimeEngine {
     this.currentModel = null;
 
   }
-    /**
+
+  /**
    * Runtime Status
    */
   public getStatus(): {
