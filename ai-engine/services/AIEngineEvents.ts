@@ -8,14 +8,15 @@
  * Central event system for the AI Engine.
  *
  * Compatibility:
- * - Supports emit(event)
- * - Supports emit(type, payload)
- * - Exports AIEngineEvents
- * - Exports AIEngineEventEmitter
- * - Exports AIEngineEvent
- * - Exports AIEngineEventListener
- * - Exports IAIEventPayload
- * - Exports AIEngineEventPayload
+ * - emit(event)
+ * - emit(type, payload)
+ * - AIRequest / AIResponse payloads
+ * - AIEngineEvents
+ * - AIEngineEventEmitter
+ * - AIEngineEvent
+ * - AIEngineEventListener
+ * - IAIEventPayload
+ * - AIEngineEventPayload
  * -------------------------------------------------------------
  */
 
@@ -76,19 +77,19 @@ export class AIEngineEvents {
   }
 
   // -----------------------------------------------------------
-  // Alias for unsubscribe
-  // -----------------------------------------------------------
-
-  removeListener(listener: AIEngineEventListener): void {
-    this.off(listener);
-  }
-
-  // -----------------------------------------------------------
-  // Alias for subscribe
+  // Backward-compatible subscribe alias
   // -----------------------------------------------------------
 
   addListener(listener: AIEngineEventListener): void {
     this.on(listener);
+  }
+
+  // -----------------------------------------------------------
+  // Backward-compatible unsubscribe alias
+  // -----------------------------------------------------------
+
+  removeListener(listener: AIEngineEventListener): void {
+    this.off(listener);
   }
 
   // -----------------------------------------------------------
@@ -98,12 +99,16 @@ export class AIEngineEvents {
   emit(event: AIEngineEvent): void;
 
   // -----------------------------------------------------------
-  // Emit event using type + payload
+  // Emit event with arbitrary payload
+  //
+  // Generic payload is intentional.
+  // AIRequest, AIResponse and other domain objects do not need
+  // to implement an index signature.
   // -----------------------------------------------------------
 
-  emit(
+  emit<T>(
     type: string,
-    payload?: IAIEventPayload
+    payload?: T
   ): void;
 
   // -----------------------------------------------------------
@@ -112,18 +117,19 @@ export class AIEngineEvents {
 
   emit(
     eventOrType: AIEngineEvent | string,
-    payload?: IAIEventPayload
+    payload?: unknown
   ): void {
     const event: AIEngineEvent =
       typeof eventOrType === "string"
         ? {
             type: eventOrType,
-            payload,
+            payload: payload as IAIEventPayload | undefined,
             timestamp: Date.now(),
           }
         : {
             ...eventOrType,
-            timestamp: eventOrType.timestamp ?? Date.now(),
+            timestamp:
+              eventOrType.timestamp ?? Date.now(),
           };
 
     this.listeners.forEach((listener) => {
@@ -155,7 +161,9 @@ export class AIEngineEvents {
   // Check listener
   // -----------------------------------------------------------
 
-  hasListener(listener: AIEngineEventListener): boolean {
+  hasListener(
+    listener: AIEngineEventListener
+  ): boolean {
     return this.listeners.has(listener);
   }
 }
