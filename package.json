@@ -24,7 +24,6 @@
     "@types/jest": "^30.0.0",
     "@types/node": "^24.0.0",
     "@types/react": "^19.1.10",
-    "@types/react-native": "^0.73.0",
     "typescript": "^5.9.2",
     "eslint": "^9.34.0",
     "jest": "^30.0.5",
