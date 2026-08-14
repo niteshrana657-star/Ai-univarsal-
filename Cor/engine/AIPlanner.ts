@@ -186,7 +186,7 @@ export class AIPlanner {
             actions:
                 [...plan.actions]
                     .sort(
-                        (a,b)=>
+                        (a, b) =>
                             a.order - b.order
                     )
 
@@ -238,7 +238,14 @@ export class AIPlanner {
         }
 
 
-        return task;
+        return {
+
+            ...task,
+
+            id:
+                task.taskId
+
+        };
 
     }
 
