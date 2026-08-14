@@ -6,7 +6,7 @@
  * -------------------------------------------------------------
  */
 
-import {
+import type {
   ReleasePackage
 } from "./ReleasePackageManager";
 
