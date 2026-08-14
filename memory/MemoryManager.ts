@@ -17,26 +17,29 @@
  * -------------------------------------------------------------
  */
 
-
 import {
     ShortTermMemory
 } from "./ShortTermMemory";
-
 
 import {
     LongTermMemory
 } from "./LongTermMemory";
 
-
 import {
     ConversationMemory
 } from "./ConversationMemory";
-
 
 import {
     UserProfileMemory
 } from "./UserProfileMemory";
 
+import type {
+    ConversationEntry
+} from "./ConversationMemory";
+
+import type {
+    UserProfileEntry
+} from "./UserProfileMemory";
 
 
 export interface MemoryEntry {
@@ -60,25 +63,25 @@ export interface MemoryEntry {
 }
 
 
+/**
+ * -------------------------------------------------------------
+ * Memory Manager
+ * -------------------------------------------------------------
+ */
 
 export class MemoryManager {
-
 
     private shortTerm:
         ShortTermMemory;
 
-
     private longTerm:
         LongTermMemory;
-
 
     private conversation:
         ConversationMemory;
 
-
     private profile:
         UserProfileMemory;
-
 
 
     constructor() {
@@ -86,14 +89,11 @@ export class MemoryManager {
         this.shortTerm =
             new ShortTermMemory();
 
-
         this.longTerm =
             new LongTermMemory();
 
-
         this.conversation =
             new ConversationMemory();
-
 
         this.profile =
             new UserProfileMemory();
@@ -101,74 +101,139 @@ export class MemoryManager {
     }
 
 
-
     /**
+     * -----------------------------------------------------------
      * Store memory
+     * -----------------------------------------------------------
      */
+
     async save(
         memory: MemoryEntry
     ): Promise<void> {
 
-
-        const entry = {
-
-            ...memory,
-
-            createdAt:
-                memory.createdAt ??
-                Date.now()
-
-        };
+        const createdAt =
+            memory.createdAt ??
+            Date.now();
 
 
-        switch(entry.type) {
+        switch (memory.type) {
+
+            case "conversation": {
+
+                const roleValue =
+                    memory.metadata?.role;
+
+                const role:
+                    ConversationEntry["role"] =
+                    roleValue === "assistant" ||
+                    roleValue === "system"
+                        ? roleValue
+                        : "user";
 
 
-            case "conversation":
+                const entry:
+                    ConversationEntry = {
+
+                    id:
+                        memory.id,
+
+                    role,
+
+                    message:
+                        memory.content,
+
+                    timestamp:
+                        createdAt,
+
+                    metadata:
+                        memory.metadata
+
+                };
+
 
                 await this.conversation
                     .save(entry);
 
                 break;
+            }
 
 
+            case "profile": {
 
-            case "profile":
+                const keyValue =
+                    memory.metadata?.key;
+
+
+                const key =
+                    typeof keyValue === "string" &&
+                    keyValue.length > 0
+                        ? keyValue
+                        : memory.id ??
+                          memory.content;
+
+
+                const entry:
+                    UserProfileEntry = {
+
+                    id:
+                        memory.id,
+
+                    key,
+
+                    value:
+                        memory.content,
+
+                    createdAt
+
+                };
+
 
                 await this.profile
                     .save(entry);
 
                 break;
-
+            }
 
 
             case "long-term":
 
-                await this.longTerm
-                    .save(entry);
+                await this.longTerm.save({
+
+                    ...memory,
+
+                    createdAt
+
+                });
 
                 break;
 
 
-
             default:
 
-                await this.shortTerm
-                    .save(entry);
+                await this.shortTerm.save({
+
+                    ...memory,
+
+                    createdAt
+
+                });
+
+                break;
 
         }
 
     }
 
 
-
     /**
+     * -----------------------------------------------------------
      * Search memory
+     * -----------------------------------------------------------
      */
+
     async search(
         query: string
     ): Promise<MemoryEntry[]> {
-
 
         const results =
             await Promise.all([
@@ -184,31 +249,108 @@ export class MemoryManager {
             ]);
 
 
-        return results.flat();
+        const [
+            shortTermResults,
+            longTermResults,
+            conversationResults,
+            profileResults
+        ] = results;
+
+
+        const conversations:
+            MemoryEntry[] =
+            conversationResults.map(
+                entry => ({
+
+                    id:
+                        entry.id,
+
+                    content:
+                        entry.message,
+
+                    type:
+                        "conversation",
+
+                    metadata: {
+
+                        ...entry.metadata,
+
+                        role:
+                            entry.role
+
+                    },
+
+                    createdAt:
+                        entry.timestamp
+
+                })
+            );
+
+
+        const profiles:
+            MemoryEntry[] =
+            profileResults.map(
+                entry => ({
+
+                    id:
+                        entry.id,
+
+                    content:
+                        String(entry.value),
+
+                    type:
+                        "profile",
+
+                    metadata: {
+
+                        category:
+                            entry.category,
+
+                        key:
+                            entry.key
+
+                    },
+
+                    createdAt:
+                        entry.createdAt
+
+                })
+            );
+
+
+        return [
+
+            ...shortTermResults,
+
+            ...longTermResults,
+
+            ...conversations,
+
+            ...profiles
+
+        ];
 
     }
 
 
-
     /**
+     * -----------------------------------------------------------
      * Get complete AI context
+     * -----------------------------------------------------------
      */
-    async getContext() {
 
+    async getContext() {
 
         return {
 
             shortTerm:
                 await this.shortTerm.getAll(),
 
-
             longTerm:
                 await this.longTerm.getAll(),
 
-
             conversations:
                 await this.conversation.getAll(),
-
 
             profile:
                 await this.profile.getAll()
@@ -218,44 +360,40 @@ export class MemoryManager {
     }
 
 
-
     /**
+     * -----------------------------------------------------------
      * Clear temporary memory
+     * -----------------------------------------------------------
      */
+
     async clearTemporary():
-
         Promise<void> {
-
 
         await this.shortTerm.clear();
 
     }
 
 
-
     /**
+     * -----------------------------------------------------------
      * Clear all memory
+     * -----------------------------------------------------------
      */
+
     async clearAll():
-
         Promise<void> {
-
 
         await this.shortTerm.clear();
 
-
         await this.longTerm.clear();
 
-
         await this.conversation.clear();
-
 
         await this.profile.clear();
 
     }
 
 }
-
 
 
 export default MemoryManager;
