@@ -2,67 +2,44 @@
  * -------------------------------------------------------------
  * Universal AI Operating Companion
  * AI Engine Module
- * File: index.ts
+ * File: AIEngineEvents.ts
  * -------------------------------------------------------------
  */
 
-// -------------------------------------------------------------
-// AI Engine Service
-// -------------------------------------------------------------
+export interface IAIEventPayload {
+  [key: string]: unknown;
+}
 
-export {
-  default as AIEngineService
-} from "./AIEngineService";
+export interface AIEngineEvent {
+  type: string;
+  payload?: IAIEventPayload;
+  timestamp?: number;
+}
 
-export type {
-  AIEngineOptions
-} from "./AIEngineService";
+export type AIEngineEventListener = (
+  event: AIEngineEvent
+) => void;
 
+export class AIEngineEvents {
+  private listeners: Set<AIEngineEventListener> = new Set();
 
-// -------------------------------------------------------------
-// AI Engine Manager
-// -------------------------------------------------------------
+  on(listener: AIEngineEventListener): void {
+    this.listeners.add(listener);
+  }
 
-export {
-  default as AIEngineManager
-} from "./AIEngineManager";
+  off(listener: AIEngineEventListener): void {
+    this.listeners.delete(listener);
+  }
 
+  emit(event: AIEngineEvent): void {
+    this.listeners.forEach((listener) => {
+      listener(event);
+    });
+  }
 
-// -------------------------------------------------------------
-// AI Engine Events
-// -------------------------------------------------------------
+  clear(): void {
+    this.listeners.clear();
+  }
+}
 
-export {
-  AIEngineEvents,
-
-  // Backward-compatible alias
-  AIEngineEvents as AIEngineEventEmitter
-} from "./AIEngineEvents";
-
-
-// -------------------------------------------------------------
-// AI Engine Event Types
-// -------------------------------------------------------------
-
-export type {
-  AIEngineEvent,
-  AIEngineEventListener
-} from "./AIEngineEvents";
-
-
-// -------------------------------------------------------------
-// Backward-compatible Event Payload
-// -------------------------------------------------------------
-
-export type {
-  IAIEventPayload as AIEngineEventPayload
-} from "./AIEngineEvents";
-
-
-// -------------------------------------------------------------
-// Default Event Manager
-// -------------------------------------------------------------
-
-export {
-  AIEngineEvents as default
-} from "./AIEngineEvents";
+export default AIEngineEvents;
