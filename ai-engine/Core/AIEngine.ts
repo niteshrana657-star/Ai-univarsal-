@@ -12,10 +12,15 @@
 
 import { AIEngineState } from "./AIEngineState";
 import { AIEngineConfig } from "./AIEngineConfig";
+
 import type {
     AIRequest,
     AIResponse
 } from "./AIEngineTypes";
+
+import type {
+    AIProviderRequest
+} from "../providers/AIProvider";
 
 import { AIEngineEvents } from "../services/AIEngineEvents";
 import { AIEngineService } from "../services/AIEngineService";
@@ -111,8 +116,10 @@ export class AIEngine {
             );
 
 
-            const prompt =
-                this.buildPrompt(request);
+            const providerRequest =
+                this.buildProviderRequest(
+                    request
+                );
 
 
             const provider =
@@ -129,7 +136,7 @@ export class AIEngine {
 
             const result =
                 await provider.generate(
-                    prompt
+                    providerRequest
                 );
 
 
@@ -138,18 +145,16 @@ export class AIEngine {
                 success: true,
 
                 message:
-                    typeof result === "string"
-                        ? result
-                        : (
-                            result?.text ??
-                            result?.content ??
-                            ""
-                        ),
+                    result.text ??
+                    result.content ??
+                    "",
 
                 provider:
+                    result.provider ??
                     provider.name,
 
                 timestamp:
+                    result.timestamp ??
                     Date.now()
 
             };
@@ -227,45 +232,243 @@ export class AIEngine {
 
 
     /**
-     * Build final AI prompt
+     * Build provider request
+     *
+     * Converts the internal AI request into the
+     * unified AIProviderRequest contract.
      */
-    private buildPrompt(
+    private buildProviderRequest(
         request: AIRequest
-    ): string {
+    ): AIProviderRequest {
 
-        const system =
-            request.systemInstruction ??
-            SYSTEM_PROMPT;
+        const userPrompt =
+            createUserPrompt({
+                message:
+                    request.message,
+
+                language:
+                    this.getRequestLanguage(request),
+
+                context:
+                    request.context ?? {},
+
+                userIntent:
+                    this.getRequestIntent(request),
+
+                priority:
+                    this.getRequestPriority(request),
+
+                requiresAction:
+                    this.getRequiresAction(request)
+            });
 
 
-        const context =
+        const contextPrompt =
             createContextPrompt(
                 request.context ?? {}
             );
 
 
-        const user =
-            createUserPrompt(
-                request.message
-            );
+        const systemPrompt =
+            request.systemInstruction ??
+            SYSTEM_PROMPT;
 
 
-        return [
+        const promptParts: string[] = [
 
-            system,
+            userPrompt.message,
 
-            context,
+            contextPrompt
 
-            user
+        ];
 
-        ]
-        .filter(
-            (
-                value
-            ): value is string =>
-                Boolean(value)
-        )
-        .join("\n\n");
+
+        const prompt =
+            promptParts
+                .filter(
+                    (
+                        value
+                    ): value is string =>
+                        Boolean(value)
+                )
+                .join("\n\n");
+
+
+        return {
+
+            prompt,
+
+            systemPrompt,
+
+            context:
+                request.context ?? {},
+
+            model:
+                this.getRequestModel(request),
+
+            temperature:
+                this.getRequestTemperature(request),
+
+            maxTokens:
+                this.getRequestMaxTokens(request),
+
+            stream:
+                this.getRequestStream(request)
+
+        };
+
+    }
+
+
+    /**
+     * Get request language safely.
+     */
+    private getRequestLanguage(
+        request: AIRequest
+    ): string | undefined {
+
+        const requestWithOptionalFields =
+            request as AIRequest & {
+                language?: string;
+            };
+
+
+        return requestWithOptionalFields.language;
+
+    }
+
+
+    /**
+     * Get request intent safely.
+     */
+    private getRequestIntent(
+        request: AIRequest
+    ): string | undefined {
+
+        const requestWithOptionalFields =
+            request as AIRequest & {
+                userIntent?: string;
+            };
+
+
+        return requestWithOptionalFields.userIntent;
+
+    }
+
+
+    /**
+     * Get request priority safely.
+     */
+    private getRequestPriority(
+        request: AIRequest
+    ):
+        | "LOW"
+        | "NORMAL"
+        | "HIGH"
+        | "CRITICAL"
+        | undefined {
+
+        const requestWithOptionalFields =
+            request as AIRequest & {
+                priority?:
+                    | "LOW"
+                    | "NORMAL"
+                    | "HIGH"
+                    | "CRITICAL";
+            };
+
+
+        return requestWithOptionalFields.priority;
+
+    }
+
+
+    /**
+     * Get whether the request requires an action.
+     */
+    private getRequiresAction(
+        request: AIRequest
+    ): boolean | undefined {
+
+        const requestWithOptionalFields =
+            request as AIRequest & {
+                requiresAction?: boolean;
+            };
+
+
+        return requestWithOptionalFields.requiresAction;
+
+    }
+
+
+    /**
+     * Get model override.
+     */
+    private getRequestModel(
+        request: AIRequest
+    ): string | undefined {
+
+        const requestWithOptionalFields =
+            request as AIRequest & {
+                model?: string;
+            };
+
+
+        return requestWithOptionalFields.model;
+
+    }
+
+
+    /**
+     * Get temperature override.
+     */
+    private getRequestTemperature(
+        request: AIRequest
+    ): number | undefined {
+
+        const requestWithOptionalFields =
+            request as AIRequest & {
+                temperature?: number;
+            };
+
+
+        return requestWithOptionalFields.temperature;
+
+    }
+
+
+    /**
+     * Get max token override.
+     */
+    private getRequestMaxTokens(
+        request: AIRequest
+    ): number | undefined {
+
+        const requestWithOptionalFields =
+            request as AIRequest & {
+                maxTokens?: number;
+            };
+
+
+        return requestWithOptionalFields.maxTokens;
+
+    }
+
+
+    /**
+     * Get streaming preference.
+     */
+    private getRequestStream(
+        request: AIRequest
+    ): boolean | undefined {
+
+        const requestWithOptionalFields =
+            request as AIRequest & {
+                stream?: boolean;
+            };
+
+
+        return requestWithOptionalFields.stream;
 
     }
 
@@ -306,4 +509,4 @@ export class AIEngine {
 
     }
 
-}
+                }
