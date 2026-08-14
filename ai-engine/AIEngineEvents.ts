@@ -85,6 +85,9 @@ export const AI_MODULE_EVENTS = {
         "MODULE.BROADCAST"
 
 } as const;
+
+
+
 // ==============================
 // Registry Events
 // ==============================
@@ -167,10 +170,44 @@ export const AI_PLUGIN_EVENTS = {
 
 
 // ==============================
-// Security
-/**
- * Feature Events
- */
+// Security Events
+// ==============================
+
+export const AI_SECURITY_EVENTS = {
+
+    AUTHENTICATION_STARTED:
+        "SECURITY.AUTHENTICATION_STARTED",
+
+    AUTHENTICATION_SUCCESS:
+        "SECURITY.AUTHENTICATION_SUCCESS",
+
+    AUTHENTICATION_FAILED:
+        "SECURITY.AUTHENTICATION_FAILED",
+
+    AUTHORIZATION_STARTED:
+        "SECURITY.AUTHORIZATION_STARTED",
+
+    AUTHORIZATION_GRANTED:
+        "SECURITY.AUTHORIZATION_GRANTED",
+
+    AUTHORIZATION_DENIED:
+        "SECURITY.AUTHORIZATION_DENIED",
+
+    PERMISSION_GRANTED:
+        "SECURITY.PERMISSION_GRANTED",
+
+    PERMISSION_DENIED:
+        "SECURITY.PERMISSION_DENIED",
+
+    SECURITY_ALERT:
+        "SECURITY.SECURITY_ALERT",
+
+    SECURITY_ERROR:
+        "SECURITY.SECURITY_ERROR"
+
+} as const;
+
+
 
 // ==============================
 // Memory Events
@@ -279,6 +316,9 @@ export const AI_NOTIFICATION_EVENTS = {
         "NOTIFICATION.DISMISSED"
 
 } as const;
+
+
+
 // ==============================
 // Common Event Payload
 // ==============================
@@ -292,6 +332,7 @@ export interface IAIEventPayload {
     data?: unknown;
 
     metadata?: Record<string, unknown>;
+
 }
 
 
@@ -307,6 +348,7 @@ export interface IAIEvent<T = unknown> {
     payload: T;
 
     timestamp: number;
+
 }
 
 
@@ -351,6 +393,7 @@ export function createAIEvent<T>(
             Date.now()
 
     };
+
 }
 
 
