@@ -7,11 +7,11 @@
  */
 
 import ModelManager
-  from "../models/ModelManager";
+  from "../Models/ModelManager";
 
 import {
   createAIModel
-} from "../models/AIModel";
+} from "../Models/AIModel";
 
 describe("ModelManager", () => {
 
