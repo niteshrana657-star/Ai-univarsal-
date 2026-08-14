@@ -18,6 +18,14 @@ export type AIEngineEventName =
 
 
 /**
+ * AI Engine Event Payload
+ *
+ * Generic payload type used by AI Engine events.
+ */
+export type AIEngineEventPayload<T = unknown> = T;
+
+
+/**
  * AI Engine Event
  */
 export interface AIEngineEvent<T = unknown> {
@@ -246,3 +254,27 @@ export class AIEngineEvents {
     }
 
 }
+
+
+/**
+ * Backward-compatible event emitter name.
+ *
+ * Existing services can use either
+ * AIEngineEvents or AIEngineEventEmitter.
+ */
+export class AIEngineEventEmitter
+    extends AIEngineEvents {
+}
+
+
+/**
+ * Default event manager instance.
+ *
+ * Used by modules that import the default
+ * AI Engine event service.
+ */
+const aiEngineEvents =
+    new AIEngineEvents();
+
+
+export default aiEngineEvents;
