@@ -6,6 +6,10 @@
  * -------------------------------------------------------------
  */
 
+// -------------------------------------------------------------
+// AI Engine Service
+// -------------------------------------------------------------
+
 export {
   default as AIEngineService
 } from "./AIEngineService";
@@ -14,20 +18,42 @@ export type {
   AIEngineOptions
 } from "./AIEngineService";
 
+
+// -------------------------------------------------------------
+// AI Engine Manager
+// -------------------------------------------------------------
+
 export {
   default as AIEngineManager
 } from "./AIEngineManager";
 
+
+// -------------------------------------------------------------
+// AI Engine Events
+// -------------------------------------------------------------
+
 export {
-  AIEngineEvent,
+  AIEngineEvents,
   AIEngineEventEmitter
 } from "./AIEngineEvents";
 
+
+// -------------------------------------------------------------
+// AI Engine Event Types
+// -------------------------------------------------------------
+
 export type {
-  AIEngineEventPayload,
-  AIEngineEventListener
+  AIEngineEvent,
+  AIEngineEventListener,
+  IAIEventPayload,
+  AIEngineEventPayload
 } from "./AIEngineEvents";
 
+
+// -------------------------------------------------------------
+// Default Event Manager
+// -------------------------------------------------------------
+
 export {
-  default as AIEngineEvents
+  default
 } from "./AIEngineEvents";
