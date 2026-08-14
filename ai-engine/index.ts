@@ -20,11 +20,11 @@
 // -------------------------------------------------------------
 export {
   AIEngine,
-  AIEngineState,
-  AIEngineConfig
+  AIEngineState
 } from "./Core";
 
 export type {
+  AIEngineConfig,
   AIRequest,
   AIResponse
 } from "./Core";
